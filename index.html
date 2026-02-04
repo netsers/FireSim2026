@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>סימולטור פו"ש- מגמת יער ושטחים פתוחים - V30 (Master)</title>
+    <title>מערכת שו"ב - V31 (Strategy & Prediction)</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        /* --- LAYOUT & PRINT --- */
+        /* CORE */
         body { margin: 0; height: 100vh; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #2c3e50; display: flex; flex-direction: column; }
         
+        /* PRINT MODE */
         @media print {
             body * { visibility: hidden; }
             #report-view, #report-view * { visibility: visible; }
@@ -20,18 +21,24 @@
             .no-print { display: none !important; }
         }
 
-        /* HEADER */
+        /* HEADER & PLAYER PANEL */
         #top-bar { 
             height: 70px; background: #1a1a1a; color: white; display: flex; align-items: center; 
             justify-content: space-between; padding: 0 15px; border-bottom: 4px solid #e67e22; z-index: 2000; flex-shrink: 0;
         }
-        .header-section { display: flex; align-items: center; gap: 15px; }
         .logo-box { width: 50px; height: 50px; background: white; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 2px solid #ccc; }
         .logo-box img { width: 100%; height: 100%; object-fit: contain; }
-        .meteo-badge { background: #34495e; padding: 4px 10px; border-radius: 4px; border: 1px solid #7f8c8d; font-size: 0.85rem; text-align: center; }
+        
+        /* COMPASS & METEO */
+        .player-panel { display: flex; align-items: center; gap: 15px; background: #2c3e50; padding: 5px 15px; border-radius: 8px; border: 1px solid #566573; }
+        .compass-wrap { position: relative; width: 40px; height: 40px; }
+        .compass-icon { font-size: 36px; color: #e74c3c; transition: transform 0.5s ease; }
+        .compass-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 10px; font-weight: bold; color: white; text-shadow: 1px 1px 1px black; }
+        .meteo-info { font-size: 0.85rem; line-height: 1.2; color: #ecf0f1; }
+
         .clock-display { font-family: monospace; font-size: 1.5rem; font-weight: bold; color: #f1c40f; text-shadow: 1px 1px 2px black; }
 
-        /* MAIN CONTENT */
+        /* MAIN & MAP */
         #main-container { display: flex; flex: 1; height: calc(100% - 70px); position: relative; }
         #map { flex: 1; background: #333; position: relative; z-index: 1; }
 
@@ -40,45 +47,53 @@
             width: 350px; background: #f8f9fa; border-right: 2px solid #ccc; z-index: 1500; 
             display: flex; flex-direction: column; height: 100%;
         }
-        .sb-header { padding: 10px; background: #e9ecef; font-weight: bold; border-bottom: 1px solid #bdc3c7; }
-        #log-container { flex: 2; overflow-y: auto; background: white; padding: 5px; font-size: 0.85rem; border-bottom: 2px solid #bdc3c7; }
+        .sb-header { padding: 8px; background: #e9ecef; font-weight: bold; border-bottom: 1px solid #bdc3c7; font-size: 0.9rem; }
+        #log-container { flex: 2; overflow-y: auto; background: white; padding: 5px; font-size: 0.8rem; border-bottom: 2px solid #bdc3c7; }
         .log-row { padding: 4px 0; border-bottom: 1px solid #eee; display: flex; gap: 5px; }
-        .log-time { color: #7f8c8d; min-width: 45px; font-size: 0.75rem; }
-        .log-role { font-weight: bold; color: #2980b9; font-size: 0.75rem; min-width: 80px; }
+        .log-time { color: #7f8c8d; min-width: 40px; font-size: 0.75rem; }
+        .log-role { font-weight: bold; color: #2980b9; font-size: 0.75rem; min-width: 70px; }
         
         #requests-container { flex: 1; overflow-y: auto; background: #fff3cd; padding: 5px; }
-        .req-card { background: white; border: 1px solid #f39c12; padding: 8px; margin-bottom: 5px; font-size: 0.85rem; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .req-card { background: white; border: 1px solid #f39c12; padding: 6px; margin-bottom: 4px; font-size: 0.8rem; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
 
-        #chat-box { padding: 10px; background: #ecf0f1; border-top: 1px solid #bdc3c7; }
-
-        /* PANELS (Resizable & Draggable) */
+        /* DRAGGABLE PANELS */
         .draggable-panel { 
             position: absolute; background: rgba(255, 255, 255, 0.98); 
             border-radius: 6px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); 
-            z-index: 1000; min-width: 80px; display: flex; flex-direction: column; 
+            z-index: 1000; min-width: 90px; display: flex; flex-direction: column; 
             border: 1px solid #95a5a6; overflow: hidden; resize: both;
         }
-        .panel-handle { background: #2c3e50; height: 22px; cursor: move; width: 100%; display: flex; justify-content: center; align-items: center; }
-        .panel-handle::after { content: '::::'; color: #95a5a6; letter-spacing: 2px; }
-        .tool-grid { display: grid; grid-template-columns: 1fr; gap: 5px; padding: 5px; overflow-y: auto; }
+        .panel-handle { background: #34495e; height: 24px; cursor: move; width: 100%; display: flex; justify-content: center; align-items: center; color: white; font-size: 0.8rem; }
+        .tool-grid { display: grid; grid-template-columns: 1fr; gap: 5px; padding: 5px; overflow-y: auto; max-height: 400px; }
         
-        .btn-tool { width: 100%; height: 40px; border: 1px solid #bdc3c7; background: white; border-radius: 4px; cursor: pointer; transition: 0.1s; display: flex; align-items: center; justify-content: center; gap: 5px; font-weight: bold; font-size: 14px; }
+        .btn-tool { 
+            width: 100%; height: 38px; border: 1px solid #bdc3c7; background: white; border-radius: 4px; 
+            cursor: pointer; transition: 0.1s; display: flex; align-items: center; padding-right: 8px; gap: 8px; 
+            font-weight: 500; font-size: 13px; position: relative; 
+        }
         .btn-tool:hover { background: #ecf0f1; }
         .btn-tool.active { background: #3498db; color: white; border-color: #2980b9; }
 
-        /* MAP ICONS */
+        /* CUSTOM ICONS */
         .icon-unit { background: white; border: 2px solid black; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 10px; position: relative; box-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
         .unit-saar { width: 36px; height: 22px; border-color: #c0392b; color: #c0392b; }
         .unit-eshed { width: 46px; height: 26px; border-color: #8e44ad; color: #8e44ad; }
-        .unit-water { position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: #ccc; }
-        .unit-water-fill { height: 100%; background: #3498db; }
+        .unit-heli { width: 30px; height: 30px; border-radius: 50%; background: #fff; border: 2px solid #2980b9; color: #2980b9; display: flex; justify-content: center; align-items: center; font-size: 16px; }
+        
+        /* TACTICAL SYMBOLS */
+        .sym-risk { color: #27ae60; font-size: 24px; text-shadow: 0 0 2px black; } /* Green Triangle */
+        .sym-defense { width: 24px; height: 24px; background: black; border-radius: 50%; border: 2px solid white; position: relative; } /* Spike Circle */
+        .sym-defense::after { content: '▲'; color: white; position: absolute; top: -14px; left: 2px; font-size: 10px; transform: rotate(0deg); } /* Fake spikes */
+        
+        .unit-water-fill { position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: #3498db; }
 
-        /* FIRE LEVELS COLORS */
-        .fire-lvl-1 { stroke: gray; } .fire-lvl-2 { stroke: yellow; } .fire-lvl-3 { stroke: orange; }
-        .fire-lvl-4 { stroke: #d35400; stroke-width: 3; } .fire-lvl-5 { stroke: red; stroke-width: 4; } 
-        .fire-lvl-6 { stroke: purple; stroke-width: 5; stroke-dasharray: 5,5; }
+        /* FIRE & PREDICTION */
+        .fire-poly { stroke: red; stroke-width: 2; fill: #e67e22; fill-opacity: 0.5; }
+        .burnt-poly { stroke: none; fill: #2c3e50; fill-opacity: 0.8; }
+        .pred-line { stroke: #f1c40f; stroke-width: 2; stroke-dasharray: 10,10; fill: none; pointer-events: none; }
+        .pred-label { font-size: 10px; color: #f1c40f; font-weight: bold; }
 
-        /* REPORT VIEW */
+        /* REPORT */
         #report-view { display: none; color: black; font-family: 'Segoe UI', serif; }
         .report-header { text-align: center; border-bottom: 2px solid black; margin-bottom: 20px; padding-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 20px; }
         .report-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
@@ -90,16 +105,16 @@
 
     <div id="report-view">
         <div class="report-header">
-            <img src="logo.jpg" style="height: 80px;">
+            <img src="logo.jpg" style="height: 80px;" onerror="this.src='logo.jpg.png'">
             <div>
                 <h2>דוח תחקיר אירוע - מגמת יער ושטחים פתוחים</h2>
                 <h4 id="rep-date"></h4>
             </div>
         </div>
-        <div class="alert alert-info">הערה: המפה היא תמונת מצב לרגע הפקת הדוח.</div>
-        <h3>יומן אירועים:</h3>
+        <div class="alert alert-info">תמונת מצב נכונה לשעת הפקת הדוח.</div>
+        <h3>יומן מבצעים מלא:</h3>
         <table class="report-table">
-            <thead><tr><th>שעה</th><th>תפקיד</th><th>שם המשתמש</th><th>פעולה/דיווח</th></tr></thead>
+            <thead><tr><th>שעה</th><th>תפקיד</th><th>שם</th><th>דיווח/פעולה</th></tr></thead>
             <tbody id="rep-table-body"></tbody>
         </table>
     </div>
@@ -116,8 +131,8 @@
                 <option value="א">גזרה א'</option><option value="ב">גזרה ב'</option>
                 <option value="ג">גזרה ג'</option><option value="ד">גזרה ד'</option>
             </select>
-            <input type="text" id="username" class="form-control mb-3 text-center" placeholder="שם מלא לתחקיר">
-            <input type="text" id="game-id" class="form-control mb-4 text-center" value="drill_v30">
+            <input type="text" id="username" class="form-control mb-3 text-center" placeholder="שם מלא (לתחקיר)">
+            <input type="text" id="game-id" class="form-control mb-4 text-center" value="drill_v31">
             <button class="btn btn-danger w-100 fw-bold" onclick="login()">התחבר</button>
         </div>
     </div>
@@ -125,21 +140,33 @@
     <div id="top-bar">
         <div class="header-section">
             <div class="logo-box">
-                <img src="logo.jpg" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48dGV4dCB4PSI1MCIgeT0iNTAiIGZvbnQtc2l6ZT0iMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkxPR088L3RleHQ+PC9zdmc+'">
+                <img src="logo.jpg" onerror="this.src='logo.jpg.png'">
             </div>
-            <span id="user-badge" class="badge bg-secondary p-2">אורח</span>
-            <div class="meteo-badge" id="meteo-data">
-                <i class="fa-solid fa-wind"></i> <span id="val-wind">0</span> קמ"ש 
-                (<span id="val-dir">0</span>°) | 
-                <span id="val-temp">25</span>°C
+            <div class="player-panel">
+                <div class="compass-wrap">
+                    <i class="fa-regular fa-compass compass-icon" id="compass-arrow"></i>
+                    <div class="compass-text" id="compass-val">0°</div>
+                </div>
+                <div class="meteo-info">
+                    <div><i class="fa-solid fa-wind"></i> <span id="val-wind">0</span> קמ"ש</div>
+                    <div class="text-muted" style="font-size:0.75em"><i class="fa-solid fa-temperature-half"></i> <span id="val-temp">25</span>°C</div>
+                </div>
             </div>
+            <span id="user-badge" class="badge bg-secondary">אורח</span>
         </div>
+        
         <div class="header-section text-center">
             <div class="small text-white-50">זמן מבצעי (x10)</div>
             <div id="clock-display" class="clock-display">T+00:00</div>
         </div>
+        
         <div class="header-section">
-            <button class="btn btn-sm btn-outline-light" onclick="generateReport()"><i class="fa-solid fa-print"></i> דוח</button>
+            <button class="btn btn-sm btn-outline-warning" onclick="togglePrediction()">
+                <i class="fa-solid fa-stopwatch"></i> חיזוי אש
+            </button>
+            <button class="btn btn-sm btn-outline-light" onclick="generateReport()">
+                <i class="fa-solid fa-print"></i> דוח
+            </button>
         </div>
     </div>
 
@@ -147,36 +174,44 @@
         <div id="map">
             
             <div class="draggable-panel" id="p-admin" style="top:20px; right:20px; display:none;">
-                <div class="panel-handle"></div>
+                <div class="panel-handle">מנהלת</div>
                 <div class="tool-grid">
-                    <button class="btn-tool" onclick="setTool('fire',event)" title="הצתה"><i class="fa-solid fa-fire text-danger"></i> אש</button>
-                    <button class="btn-tool" onclick="setTool('water',event)" title="מקור מים"><i class="fa-solid fa-droplet text-primary"></i> מים</button>
-                    <button class="btn-tool" onclick="editMeteo()" title="מזג אוויר"><i class="fa-solid fa-cloud"></i> מזג אוויר</button>
-                    <button class="btn-tool" onclick="addBank('saar')" title="+סער"><i class="fa-solid fa-plus"></i> סער</button>
-                    <button class="btn-tool" onclick="addBank('eshed')" title="+אשד"><i class="fa-solid fa-plus"></i> אשד</button>
-                    <button class="btn-tool" onclick="resetAll()"><i class="fa-solid fa-trash"></i> איפוס</button>
+                    <button class="btn-tool" onclick="setTool('fire',event)" title="נקודת התחלה"><i class="fa-solid fa-fire text-danger"></i> הצתת אש</button>
+                    <button class="btn-tool" onclick="editMeteo()" title="שינוי רוח/טמפ"><i class="fa-solid fa-cloud"></i> מזג אוויר</button>
+                    <button class="btn-tool" onclick="setTool('water',event)" title="מקור מים רגיל"><i class="fa-solid fa-droplet text-primary"></i> מים</button>
+                    <button class="btn-tool" onclick="setTool('pool',event)" title="בריכה למסוק"><i class="fa-solid fa-water text-info"></i> בריכת מילוי</button>
+                    <button class="btn-tool" onclick="setTool('plane_red',event)" title="מעכב"><i class="fa-solid fa-plane text-danger"></i> מטוס מעכב</button>
+                    <button class="btn-tool" onclick="setTool('plane_blue',event)" title="מים"><i class="fa-solid fa-plane text-primary"></i> מטוס מים</button>
+                    <button class="btn-tool" onclick="resetAll()"><i class="fa-solid fa-trash"></i> איפוס הכל</button>
                 </div>
             </div>
 
-            <div class="draggable-panel" id="p-ic" style="top:20px; right:100px; display:none;">
-                <div class="panel-handle"></div>
+            <div class="draggable-panel" id="p-ic" style="top:20px; right:120px; display:none;">
+                <div class="panel-handle">מפקד אירוע</div>
                 <div class="tool-grid">
-                    <button class="btn-tool" onclick="setTool('cp',event)"><i class="fa-solid fa-flag text-danger"></i> חפ"ק</button>
-                    <button class="btn-tool" onclick="setTool('staging',event)"><i class="fa-solid fa-circle-h text-danger"></i> שט"כ</button>
-                    <button class="btn-tool" onclick="setTool('sector_draw',event)"><i class="fa-solid fa-draw-polygon text-warning"></i> גזרה</button>
-                    <button class="btn-tool" onclick="setTool('arrow',event)"><i class="fa-solid fa-arrow-right"></i> חץ</button>
-                    <button class="btn-tool" onclick="openBankIC()" title="הקצאת כוחות"><i class="fa-solid fa-users-gear"></i> עתודה</button>
+                    <button class="btn-tool" onclick="setTool('cp',event)" title="הצבת חפ''ק"><i class="fa-solid fa-flag text-danger"></i> חפ"ק</button>
+                    <button class="btn-tool" onclick="setTool('staging',event)" title="שטח כינוס"><i class="fa-solid fa-circle-h text-danger"></i> שט"כ</button>
+                    <button class="btn-tool" onclick="setTool('sector_draw',event)" title="דאבל קליק לסיום"><i class="fa-solid fa-draw-polygon text-warning"></i> שרטוט גזרה</button>
+                    <button class="btn-tool" onclick="setTool('delete_sector',event)" title="מחיקת גזרה"><i class="fa-solid fa-eraser"></i> מחק גזרה</button>
+                    <button class="btn-tool" onclick="openBankIC()" title="ניהול כוחות"><i class="fa-solid fa-users-gear"></i> הקצאת כוחות</button>
+                    <hr style="margin:2px">
+                    <button class="btn-tool" onclick="setTool('sym_risk',event)" title="סיכון מיוחד (משולש ירוק)"><i class="fa-solid fa-caret-down text-success"></i> סיכון מיוחד</button>
+                    <button class="btn-tool" onclick="setTool('sym_defense',event)" title="הגנה קריטית (קיפוד)"><i class="fa-solid fa-certificate"></i> הגנה קריטית</button>
+                    <button class="btn-tool" onclick="setTool('arrow',event)" title="חץ תקיפה"><i class="fa-solid fa-arrow-right text-danger"></i> חץ תקיפה</button>
+                    <button class="btn-tool" onclick="setTool('route',event)" title="נתיב (דאבל קליק לסיום)"><i class="fa-solid fa-route"></i> נתיב נסיעה</button>
                 </div>
             </div>
 
             <div class="draggable-panel" id="p-sector" style="bottom:20px; right:20px; display:none;">
-                <div class="panel-handle"></div>
+                <div class="panel-handle">מפקד גזרה</div>
                 <div class="tool-grid">
-                    <button class="btn-tool" onclick="reqRes('saar')">בקש סער</button>
-                    <button class="btn-tool" onclick="reqRes('eshed')">בקש אשד</button>
-                    <button class="btn-tool" onclick="moveUnit(event)"><i class="fa-solid fa-up-down-left-right"></i> הזז</button>
-                    <button class="btn-tool" onclick="reqD9()">בקש D9</button>
-                    <button class="btn-tool" onclick="openStagingSector()"><i class="fa-solid fa-download"></i> הצב</button>
+                    <button class="btn-tool" onclick="reqRes('saar')">🚒 בקש סער</button>
+                    <button class="btn-tool" onclick="reqRes('eshed')">🚛 בקש אשד</button>
+                    <button class="btn-tool" onclick="reqRes('heli')">🚁 בקש מסוק</button>
+                    <button class="btn-tool" onclick="reqD9()">🚜 בקש D9</button>
+                    <hr style="margin:2px">
+                    <button class="btn-tool" onclick="openSectorBank()" title="הצב כוחות שאושרו"><i class="fa-solid fa-download text-success"></i> כוחות זמינים</button>
+                    <button class="btn-tool" onclick="moveUnit(event)"><i class="fa-solid fa-up-down-left-right text-primary"></i> הזזת כוח</button>
                 </div>
             </div>
 
@@ -210,7 +245,8 @@
         let myRole=null, myName="", mySector=null;
         let activeTool=null, selectedUnit=null;
         let polyPoints=[], dragStart=null, tempLine=null;
-        let gameState = { start: Date.now(), wind:10, windDir:270, temp:25 };
+        let gameState = { start: Date.now(), wind:10, windDir:0, temp:25 };
+        let showPrediction = false;
         const TIME_FACTOR = 10;
         
         // --- LOGIN & SETUP ---
@@ -227,12 +263,12 @@
             if(myRole==='sector') mySector = document.getElementById('sector-sel').value;
             
             document.getElementById('login-overlay').style.display='none';
-            document.getElementById('user-badge').innerText = `${myName} | ${getRoleName()}`;
-            logSys(`התחבר למערכת`);
+            document.getElementById('user-badge').innerText = `${myName}`;
+            logSys(`התחבר למערכת (${getRoleName()})`);
 
             // Setup Panels
-            if(myRole==='admin') { document.getElementById('p-admin').style.display='flex'; document.getElementById('p-sector').style.display='flex'; }
-            if(myRole==='ic') { document.getElementById('p-ic').style.display='flex'; document.getElementById('p-sector').style.display='flex'; }
+            if(myRole==='admin') { document.getElementById('p-admin').style.display='flex'; document.getElementById('p-ic').style.display='flex'; }
+            if(myRole==='ic') { document.getElementById('p-ic').style.display='flex'; }
             if(myRole==='sector') { document.getElementById('p-sector').style.display='flex'; }
 
             makeDraggable();
@@ -256,9 +292,11 @@
         function initMap() {
             map = L.map('map', {doubleClickZoom:false}).setView([32.73, 35.03], 14);
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}').addTo(map);
-            L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {opacity: 0.4}).addTo(map);
-
-            layers.fire = L.layerGroup().addTo(map);
+            
+            // Layer Groups
+            layers.burnt = L.layerGroup().addTo(map); // Black static area
+            layers.fire = L.layerGroup().addTo(map);  // Active edge
+            layers.pred = L.layerGroup().addTo(map);  // Prediction
             layers.polys = L.layerGroup().addTo(map);
             layers.units = L.layerGroup().addTo(map);
             layers.drawings = L.layerGroup().addTo(map);
@@ -276,22 +314,32 @@
         function onMapClick(e) {
             let loc = e.latlng;
             
-            // Draw Sector Points
-            if(activeTool==='sector_draw') {
+            // Draw Points (Sector / Route)
+            if(activeTool==='sector_draw' || activeTool==='route') {
                 polyPoints.push(loc);
-                L.marker(loc,{icon:L.divIcon({className:'bg-warning rounded-circle', iconSize:[6,6]})}).addTo(layers.drawings);
+                let col = activeTool==='sector_draw'?'orange':'black';
+                L.marker(loc,{icon:L.divIcon({className:'bg-dark rounded-circle', iconSize:[5,5]})}).addTo(layers.drawings);
                 return;
             }
 
-            // Place Unit from Staging
-            if(activeTool==='place_unit' && selectedUnit) { // selectedUnit holds the Staging Key here
+            // Place Unit
+            if(activeTool==='place_unit' && selectedUnit) { 
                 placeUnit(selectedUnit, loc);
                 return;
             }
+            
+            // Delete Sector
+            if(activeTool==='delete_sector') {
+                 // Simplistic: find nearest sector polygon (not implemented fully for hit test here)
+                 // V31 Shortcut: Ask user name of sector
+                 let name = prompt("הכנס אות גזרה למחיקה (א/ב...):");
+                 if(name) { deleteSector(name); }
+                 resetTool(); return;
+            }
 
-            // Move Unit Destination
+            // Move Unit
             if(activeTool==='move_dest' && selectedUnit) {
-                update(ref(db, `games/drill_v30/units/${selectedUnit}`), { destLat:loc.lat, destLng:loc.lng, status:'moving' });
+                update(ref(db, `games/drill_v31/units/${selectedUnit}`), { destLat:loc.lat, destLng:loc.lng, status:'moving' });
                 logSys("פקודת תנועה");
                 activeTool='move_select'; selectedUnit=null;
                 return;
@@ -300,126 +348,204 @@
             if(!activeTool) return;
 
             // Placements
-            if(activeTool==='fire') { push(ref(db, `games/drill_v30/units`), {type:'fire', lat:loc.lat, lng:loc.lng, start:getGameTime(), level:1}); logSys("הצצת אש"); }
-            if(activeTool==='cp') { push(ref(db, `games/drill_v30/units`), {type:'marker', sub:'cp', lat:loc.lat, lng:loc.lng}); logSys("חפק"); }
-            if(activeTool==='staging') { push(ref(db, `games/drill_v30/units`), {type:'marker', sub:'staging', lat:loc.lat, lng:loc.lng}); logSys("שטח כינוס"); }
-            if(activeTool==='water') { push(ref(db, `games/drill_v30/units`), {type:'marker', sub:'water', lat:loc.lat, lng:loc.lng}); }
+            if(activeTool==='fire') { push(ref(db, `games/drill_v31/units`), {type:'fire', lat:loc.lat, lng:loc.lng, start:getGameTime(), windDirAtStart:gameState.windDir, level:1}); logSys("הצצת אש"); }
+            if(activeTool==='cp') { push(ref(db, `games/drill_v31/units`), {type:'marker', sub:'cp', lat:loc.lat, lng:loc.lng}); logSys("חפק"); }
+            if(activeTool==='staging') { push(ref(db, `games/drill_v31/units`), {type:'marker', sub:'staging', lat:loc.lat, lng:loc.lng}); logSys("שטח כינוס"); }
+            if(activeTool==='water') { push(ref(db, `games/drill_v31/units`), {type:'marker', sub:'water', lat:loc.lat, lng:loc.lng}); }
+            if(activeTool==='pool') { push(ref(db, `games/drill_v31/units`), {type:'marker', sub:'pool', lat:loc.lat, lng:loc.lng}); }
             
-            if(!['arrow','dozer','sector_draw'].includes(activeTool)) resetTool();
+            // Tactical
+            if(activeTool==='sym_risk') { push(ref(db, `games/drill_v31/units`), {type:'marker', sub:'sym_risk', lat:loc.lat, lng:loc.lng}); }
+            if(activeTool==='sym_defense') { push(ref(db, `games/drill_v31/units`), {type:'marker', sub:'sym_defense', lat:loc.lat, lng:loc.lng}); }
+
+            if(!['arrow','dozer','sector_draw','route','plane_red','plane_blue'].includes(activeTool)) resetTool();
         }
 
         function onMapDblClick() {
             if(activeTool==='sector_draw' && polyPoints.length>2) {
                 let name = prompt("שם הגזרה (א, ב...):");
-                if(name) push(ref(db, `games/drill_v30/units`), {type:'sector', name:name, points:polyPoints});
+                if(name) push(ref(db, `games/drill_v31/units`), {type:'sector', name:name, points:polyPoints});
+                polyPoints=[]; resetTool();
+            }
+            if(activeTool==='route' && polyPoints.length>1) {
+                push(ref(db, `games/drill_v31/units`), {type:'drawing', sub:'route', points:polyPoints});
                 polyPoints=[]; resetTool();
             }
         }
 
-        function onMouseDown(e) { if(['arrow','dozer'].includes(activeTool)) { map.dragging.disable(); dragStart=e.latlng; } }
+        function onMouseDown(e) { if(['arrow','dozer','plane_red','plane_blue'].includes(activeTool)) { map.dragging.disable(); dragStart=e.latlng; } }
         function onMouseMove(e) { 
             if(dragStart) { 
                 if(tempLine) map.removeLayer(tempLine); 
-                let c = activeTool==='dozer'?'black':'red';
-                let txt = "";
-                if(activeTool==='dozer') {
-                    let dist = map.distance(dragStart, e.latlng);
-                    // Speed 3000m/h -> 50m/min
-                    let mins = Math.ceil(dist / 50);
-                    txt = ` | ${Math.round(dist)}m (~${mins} דק')`;
-                }
-                tempLine = L.polyline([dragStart,e.latlng],{color:c, weight:4}).addTo(map).bindTooltip(activeTool+txt).openTooltip();
+                let c = (activeTool==='dozer'||activeTool==='route')?'black':'red';
+                if(activeTool.includes('plane')) c = activeTool.includes('blue')?'blue':'red';
+                tempLine = L.polyline([dragStart,e.latlng],{color:c, weight:4}).addTo(map);
             } 
         }
         function onMouseUp(e) {
             if(dragStart) {
                 let dist = map.distance(dragStart, e.latlng);
-                if(activeTool==='dozer') {
-                    // D9 Logic: 3km/h
-                    let duration = (dist / 3000) * 3600000; // ms in game time
-                    push(ref(db, `games/drill_v30/units`), {type:'drawing', sub:'dozer', p1:dragStart, p2:e.latlng, start:getGameTime(), duration:duration});
-                    logSys(`תכנון קו חישוף ${Math.round(dist)}מ'`);
+                let sub = activeTool;
+                if(sub==='dozer') {
+                    let duration = (dist / 3000) * 3600000;
+                    push(ref(db, `games/drill_v31/units`), {type:'drawing', sub:'dozer', p1:dragStart, p2:e.latlng, start:getGameTime(), duration:duration});
+                    logSys(`D9: ${Math.round(dist)}m`);
+                } else if(sub.includes('plane')) {
+                    push(ref(db, `games/drill_v31/units`), {type:'drawing', sub:sub, p1:dragStart, p2:e.latlng});
                 } else {
-                    push(ref(db, `games/drill_v30/units`), {type:'drawing', sub:'arrow', p1:dragStart, p2:e.latlng});
+                    push(ref(db, `games/drill_v31/units`), {type:'drawing', sub:'arrow', p1:dragStart, p2:e.latlng});
                 }
                 dragStart=null; map.dragging.enable(); if(tempLine) map.removeLayer(tempLine); resetTool();
             }
         }
 
-        // --- BUSINESS LOGIC ---
+        // --- PHYSICS & PREDICTION ---
         
-        // Fire Physics (Fan Shape)
         function drawFire(obj, gt) {
-            let el = (gt - obj.start)/1000; // seconds elapsed
+            let el = (gt - obj.start)/1000; // seconds active
             let speed = gameState.wind * 30; // m/h
             let length = 50 + (speed * (el/3600)); // meters growth
             
-            // Star start
-            L.marker([obj.lat,obj.lng],{icon:L.divIcon({html:'<i class="fa-solid fa-star text-danger fs-5"></i>',className:''})}).addTo(layers.fire);
+            // Always draw origin star
+            L.marker([obj.lat,obj.lng],{icon:L.divIcon({html:'<i class="fa-solid fa-star text-danger fs-6"></i>',className:''})}).addTo(layers.burnt);
 
-            if(el > 60) { // After 1 min game time, fan starts
+            if(el > 60) { 
+                // Determine direction: If wind changed significantly since start, we should have added a new "fire node".
+                // For V31, we simulate "active front" reacting to CURRENT wind.
+                // Burnt area = static shape based on history (simplified here as one shape for performance, 
+                // ideally would be a history of polygons).
+                
                 let windRad = (gameState.windDir - 90) * (Math.PI / 180);
-                let spread = 0.5; // Fan width
+                let spread = 0.6; 
                 let latOff = length / 111111;
                 let p1 = [obj.lat + latOff * Math.sin(windRad-spread), obj.lng + latOff * Math.cos(windRad-spread)];
                 let p2 = [obj.lat + latOff * Math.sin(windRad+spread), obj.lng + latOff * Math.cos(windRad+spread)];
                 
-                // Color by Level
-                let cls = `fire-lvl-${obj.level}`;
-                L.polygon([[obj.lat,obj.lng],p1,p2], {className: cls, color:'red', fillColor:'#e67e22', fillOpacity:0.5}).addTo(layers.fire);
+                // Burnt Area (Inner)
+                L.polygon([[obj.lat,obj.lng],p1,p2], {stroke:false, fillColor:'#2c3e50', fillOpacity:0.6}).addTo(layers.burnt);
                 
-                // Check Safety (Radius 70m)
-                checkSafety(obj.lat, obj.lng, length, obj.level);
+                // Active Front (Edge)
+                let cls = `fire-lvl-${obj.level || 1}`;
+                L.polyline([p1, p2], {color: getFireColor(obj.level), weight:4}).addTo(layers.fire);
+
+                // PREDICTION (If enabled)
+                if(showPrediction) {
+                    drawPrediction(obj, length, speed, windRad, spread);
+                }
             }
         }
 
-        function checkSafety(flat, flng, len, lvl) {
-            if(lvl < 4) return;
-            // Simple check: is any unit within fire range?
-            // (Simplified geometry check for V30 performance)
-            // Real intersection logic would go here.
+        function drawPrediction(obj, currentLen, speed, rad, spread) {
+            // Predict 2 hours ahead
+            for(let i=1; i<=4; i++) {
+                let timeHours = i * 0.5; // 0.5, 1.0, 1.5, 2.0
+                let predLen = currentLen + (speed * timeHours);
+                let pLatOff = predLen / 111111;
+                
+                let pp1 = [obj.lat + pLatOff * Math.sin(rad-spread), obj.lng + pLatOff * Math.cos(rad-spread)];
+                let pp2 = [obj.lat + pLatOff * Math.sin(rad+spread), obj.lng + pLatOff * Math.cos(rad+spread)];
+                
+                // Draw arc (simplified as line)
+                L.polyline([pp1, pp2], {color:'#f1c40f', dashArray:'10,10', weight:2}).addTo(layers.pred);
+                // Label
+                if(i===4) L.marker(pp2, {icon:L.divIcon({className:'pred-label', html:'T+2h', iconSize:[30,10]})}).addTo(layers.pred);
+            }
         }
 
-        // Bank & Assignment Logic
-        window.openBankIC = async () => {
-            const s = await get(ref(db, `games/drill_v30/bank`));
-            let data = s.val();
-            let html = "";
-            if(data) Object.entries(data).forEach(([k,v]) => {
-                html += `<div class="btn btn-outline-light w-100 mb-1 text-start" onclick="assignUnit('${k}','${v.type}')">🚛 ${v.type}</div>`;
-            });
-            let win = window.open("", "Bank", "width=300,height=400");
-            win.document.write(`<html><body style="background:#333;color:white"><h3>בנק כוחות</h3>${html || 'ריק'}</body></html>`);
-            // Note: Popup blocking might be an issue, better to use in-page modal. 
-            // Reverting to Prompt for simplicity in V30 Master due to HTML limit
-        };
+        function getFireColor(lvl) {
+            let cols = ['gray','gray','yellow','orange','orangered','red','purple'];
+            return cols[lvl] || 'red';
+        }
 
-        window.assignUnit = (k, type) => {
-            let sector = prompt("לאיזה גזרה להקצות? (א/ב/ג...)");
-            if(sector) {
-                remove(ref(db, `games/drill_v30/bank/${k}`));
-                push(ref(db, `games/drill_v30/sector_staging`), {type:type, sector:sector});
-                logSys(`הקצאת ${type} לגזרה ${sector}`);
-            }
-        };
-
-        // D9 Logic
-        window.reqD9 = () => {
-            if(myRole==='admin') return; 
-            push(ref(db, `games/drill_v30/requests`), {type:'D9', by:getRoleName(), time:Date.now()});
+        // --- RESOURCE MANAGEMENT (FIXED) ---
+        
+        window.reqRes = (type) => {
+            push(ref(db, `games/drill_v31/requests`), {type:type, by:getRoleName(), sector:mySector, time:Date.now()});
             alert("בקשה נשלחה");
+        };
+
+        window.reqD9 = () => { window.reqRes('D9'); };
+
+        window.approveReq = (k, type, sector) => {
+            // Create Token in Bank (Corrected Logic)
+            if(type==='D9') {
+                push(ref(db, `games/drill_v31/sector_staging`), {type:'D9', sector:sector, status:'available'});
+            } else {
+                push(ref(db, `games/drill_v31/bank`), {type:type}); 
+            }
+            remove(ref(db, `games/drill_v31/requests/${k}`));
+            logSys(`אושר ${type}`);
+        };
+
+        window.openBankIC = async () => {
+            const s = await get(ref(db, `games/drill_v31/bank`));
+            let data = s.val();
+            // Using prompt loop for simplicity in V31 to assign units
+            if(!data) return alert("הבנק ריק");
+            let key = Object.keys(data)[0];
+            let unit = data[key];
+            
+            let sector = prompt(`נמצא ${unit.type} בבנק. הקצאה לגזרה (א/ב/ג):`);
+            if(sector) {
+                remove(ref(db, `games/drill_v31/bank/${key}`));
+                push(ref(db, `games/drill_v31/sector_staging`), {type:unit.type, sector:sector, status:'available'});
+                logSys(`הוקצה ${unit.type} לגזרה ${sector}`);
+            }
+        };
+
+        window.openSectorBank = async () => {
+            const s = await get(ref(db, `games/drill_v31/sector_staging`));
+            let data = s.val();
+            if(!data) return alert("אין כוחות זמינים");
+            
+            // Find first available for me
+            let found = Object.entries(data).find(([k,v]) => v.sector === mySector);
+            if(found) {
+                let [key, val] = found;
+                if(val.type==='D9') {
+                    activeTool = 'dozer';
+                    alert("D9 נבחר. סמן קו במפה.");
+                    // Remove token immediately or after usage? After usage usually. 
+                    remove(ref(db, `games/drill_v31/sector_staging/${key}`));
+                } else {
+                    selectedUnit = key; // Store token key to delete after placement
+                    activeSectorStagingItem = val;
+                    activeTool = 'place_unit';
+                    alert(`נבחר ${val.type}. לחץ במפה להצבה.`);
+                }
+            } else {
+                alert("אין כוחות לגזרה שלך");
+            }
+        };
+
+        window.placeUnit = (tokenKey, loc) => {
+            // Remove token
+            remove(ref(db, `games/drill_v31/sector_staging/${tokenKey}`));
+            // Create Unit
+            push(ref(db, `games/drill_v31/units`), {
+                type:'unit', sub:activeSectorStagingItem.type, lat:loc.lat, lng:loc.lng, sector:mySector, water:100, status:'idle', callSign:Math.floor(Math.random()*100)+400
+            });
+            logSys("הצבת כוח");
+            resetTool();
         };
 
         // --- RENDER ---
         function syncData() {
-            onValue(ref(db, `games/drill_v30/state`), s => {
+            onValue(ref(db, `games/drill_v31/state`), s => {
                 let v = s.val();
-                if(v) { gameState={...gameState,...v}; updateMeteoUI(); }
-                else if(myRole==='admin') set(ref(db, `games/drill_v30/state`), gameState);
+                if(v) { 
+                    gameState={...gameState,...v}; 
+                    document.getElementById('val-wind').innerText=gameState.wind;
+                    document.getElementById('val-temp').innerText=gameState.temp;
+                    document.getElementById('compass-arrow').style.transform = `rotate(${gameState.windDir}deg)`;
+                    document.getElementById('compass-val').innerText = gameState.windDir+"°";
+                }
+                else if(myRole==='admin') set(ref(db, `games/drill_v31/state`), gameState);
             });
 
-            onValue(ref(db, `games/drill_v30/units`), s => {
-                layers.fire.clearLayers(); layers.units.clearLayers(); layers.polys.clearLayers(); layers.drawings.clearLayers(); layers.markers.clearLayers();
+            onValue(ref(db, `games/drill_v31/units`), s => {
+                layers.fire.clearLayers(); layers.burnt.clearLayers(); layers.pred.clearLayers();
+                layers.units.clearLayers(); layers.polys.clearLayers(); layers.drawings.clearLayers(); layers.markers.clearLayers();
                 let data = s.val();
                 if(!data) return;
                 let gt = getGameTime();
@@ -430,10 +556,14 @@
                         L.polygon(o.points, {color:'orange', fillOpacity:0.1, dashArray:'5,5'}).addTo(layers.polys).bindTooltip(`גזרה ${o.name}`,{permanent:true, direction:"center"});
                     }
                     else if(o.type==='unit') {
-                        if(myRole==='sector' && o.sector!==mySector) return; // Sector Isolation
+                        if(myRole==='sector' && o.sector!==mySector) return; 
                         let pos = (o.status==='moving' && o.destLat) ? [o.destLat,o.destLng] : [o.lat,o.lng];
-                        let cls = o.sub=='saar'?'unit-saar':'unit-eshed';
-                        let html = `<div class="icon-unit ${cls}">${o.callSign}<div class="unit-water"><div class="unit-water-fill" style="width:${o.water}%"></div></div></div>`;
+                        let html = "";
+                        if(o.sub==='heli') html = `<div class="unit-heli"><i class="fa-solid fa-helicopter"></i></div>`;
+                        else {
+                            let cls = o.sub=='saar'?'unit-saar':'unit-eshed';
+                            html = `<div class="icon-unit ${cls}">${o.callSign}<div class="unit-water-fill" style="width:${o.water}%"></div></div>`;
+                        }
                         let m = L.marker(pos, {icon:L.divIcon({html:html,className:''})}).addTo(layers.units);
                         m.on('click', () => { if(activeTool==='move_select') { 
                             if(myRole==='sector' && o.sector!==mySector) return alert("לא בגזרה שלך");
@@ -445,95 +575,87 @@
                             let ready = gt > (o.start + o.duration);
                             let col = ready ? 'black' : 'gray';
                             let dash = ready ? null : '5,10';
-                            L.polyline([o.p1,o.p2], {color:col, weight:5, dashArray:dash}).addTo(layers.drawings);
+                            L.polyline([o.p1,o.p2], {color:col, weight:6, dashArray:dash}).addTo(layers.drawings);
+                        } else if(o.sub==='arrow') {
+                             // Arrow logic with head
+                             L.polyline([o.p1,o.p2], {color:'red', weight:4}).addTo(layers.drawings);
+                             L.marker(o.p2, {icon:L.divIcon({className:'', html:'<i class="fa-solid fa-caret-up text-danger fs-3" style="transform:rotate(0deg)"></i>'})}).addTo(layers.drawings);
+                        } else if(o.sub==='route') {
+                            L.polyline(o.points, {color:'black', dashArray:'2,5', weight:3}).addTo(layers.drawings);
                         } else {
-                            L.polyline([o.p1,o.p2], {color:'red', weight:4}).addTo(layers.drawings);
+                            // Planes
+                            let c = o.sub.includes('blue')?'blue':'red';
+                            L.polyline([o.p1,o.p2], {color:c, weight:8, opacity:0.6}).addTo(layers.drawings);
                         }
                     }
                     else if(o.type==='marker') {
-                        let html = o.sub==='cp'?'<i class="fa-solid fa-flag text-danger fs-2"></i>':(o.sub==='staging'?'<i class="fa-solid fa-circle-h text-danger fs-2"></i>':'<i class="fa-solid fa-droplet text-primary fs-3"></i>');
+                        let html = "";
+                        if(o.sub==='cp') html='<i class="fa-solid fa-flag text-danger fs-1"></i>';
+                        if(o.sub==='staging') html='<div class="icon-staging text-danger fw-bold border border-danger rounded-circle p-1 bg-white">S</div>';
+                        if(o.sub==='water') html='<i class="fa-solid fa-circle text-primary fs-4"></i>';
+                        if(o.sub==='pool') html='<span class="fa-stack"><i class="fa-solid fa-circle text-primary fa-stack-2x"></i><i class="fa-solid fa-slash text-white fa-stack-1x"></i></span>';
+                        if(o.sub==='sym_risk') html='<div class="sym-risk">▼</div>';
+                        if(o.sub==='sym_defense') html='<div class="sym-defense"></div>';
+
                         L.marker([o.lat,o.lng], {icon:L.divIcon({html:html, className:''})}).addTo(layers.markers);
                     }
                 });
             });
 
-            onValue(ref(db, `games/drill_v30/logs`), s => {
+            onValue(ref(db, `games/drill_v31/requests`), s => {
+                let d = document.getElementById('requests-container'); d.innerHTML="";
+                if(s.val()) Object.entries(s.val()).forEach(([k,v]) => {
+                    if(myRole==='admin' || myRole==='ic') {
+                        d.innerHTML += `<div class="req-card">
+                            <span><b>${v.sector}</b>: ${v.type}</span>
+                            <button class="btn btn-sm btn-success p-0 px-2" onclick="approveReq('${k}','${v.type}','${v.sector}')">אישור</button>
+                        </div>`;
+                    }
+                });
+            });
+            
+            onValue(ref(db, `games/drill_v31/logs`), s => {
                 let d = document.getElementById('log-container'); d.innerHTML="";
                 let tBody = document.getElementById('rep-table-body'); tBody.innerHTML="";
                 if(s.val()) Object.values(s.val()).forEach(l => {
                     let t = new Date(l.time).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
-                    // Sidebar Log
                     d.innerHTML += `<div class="log-row"><span class="log-time">${t}</span><span class="log-role">${l.user}</span><span class="log-msg">${l.text}</span></div>`;
-                    // Report Table
                     tBody.innerHTML += `<tr><td>${t}</td><td>${l.role}</td><td>${l.user}</td><td>${l.text}</td></tr>`;
                 });
                 d.scrollTop=d.scrollHeight;
             });
-            
-            // Requests
-            onValue(ref(db, `games/drill_v30/requests`), s => {
-                let d = document.getElementById('requests-container'); d.innerHTML="";
-                if(s.val()) Object.entries(s.val()).forEach(([k,v]) => {
-                    d.innerHTML += `<div class="req-card"><span>${v.by}: ${v.type}</span><div><button class="btn btn-sm btn-success p-0 px-2" onclick="approveReq('${k}','${v.type}')">V</button></div></div>`;
-                });
-            });
         }
 
         // --- UTILS ---
+        window.editMeteo = () => {
+            let w=prompt("רוח (קמ''ש)",gameState.wind), d=prompt("כיוון (0-360)",gameState.windDir), t=prompt("טמפ",gameState.temp);
+            if(w) update(ref(db, `games/drill_v31/state`), {wind:parseInt(w), windDir:parseInt(d), temp:parseInt(t)});
+        };
+        window.togglePrediction = () => { showPrediction = !showPrediction; syncData(); };
+        
         window.setTool = (t,e) => { 
             if(e) e.stopPropagation(); 
             activeTool=t; 
             if(t!=='move_select') selectedUnit=null; 
+            polyPoints=[];
             document.getElementById('map').style.cursor='crosshair';
         };
         window.resetTool = () => { activeTool=null; document.getElementById('map').style.cursor='grab'; };
+        window.moveUnit = (e) => { if(e) e.stopPropagation(); activeTool='move_select'; document.getElementById('map').style.cursor='pointer'; alert("בחר רכב"); };
+        window.addBank = (type) => { push(ref(db, `games/drill_v31/bank`), {type:type}); logSys(`+${type} לבנק`); };
         
-        window.moveUnit = (e) => { 
-            if(e) e.stopPropagation(); 
-            activeTool='move_select'; document.getElementById('map').style.cursor='pointer'; alert("בחר רכב"); 
-        };
-        
-        window.addBank = (type) => { push(ref(db, `games/drill_v30/bank`), {type:type}); logSys(`+${type} לבנק`); };
-        
-        window.openStagingSector = async () => {
-            const s = await get(ref(db, `games/drill_v30/sector_staging`));
-            let data = s.val();
-            if(!data) return alert("אין כוחות זמינים להצבה");
-            // Simple logic: Find first available for this sector (V30 simplification)
-            let found = Object.entries(data).find(([k,v]) => v.sector === mySector);
-            if(found) {
-                selectedUnit = found[0]; // Key
-                activeTool = 'place_unit';
-                alert(`נבחר ${found[1].type}. לחץ במפה להצבה.`);
-            } else {
-                alert("אין כוחות לגזרה שלך");
-            }
-        };
-
-        window.placeUnit = (key, loc) => {
-            get(ref(db, `games/drill_v30/sector_staging/${key}`)).then(s => {
-                let v = s.val();
-                remove(ref(db, `games/drill_v30/sector_staging/${key}`));
-                push(ref(db, `games/drill_v30/units`), {
-                    type:'unit', sub:v.type, lat:loc.lat, lng:loc.lng, sector:mySector, water:100, status:'idle', callSign:Math.floor(Math.random()*100)+400
-                });
-                logSys("הצבת כוח");
-                resetTool();
+        window.deleteSector = (name) => {
+            // Find sector key by name (Client side search for simplicity)
+            get(ref(db, `games/drill_v31/units`)).then(s => {
+                let d = s.val();
+                if(!d) return;
+                let found = Object.entries(d).find(([k,v]) => v.type==='sector' && v.name===name);
+                if(found) { remove(ref(db, `games/drill_v31/units/${found[0]}`)); logSys(`מחק גזרה ${name}`); }
+                else alert("לא נמצא");
             });
         };
-        
-        window.editMeteo = () => {
-            let w=prompt("רוח",gameState.wind), d=prompt("כיוון",gameState.windDir), t=prompt("טמפ",gameState.temp);
-            if(w) update(ref(db, `games/drill_v30/state`), {wind:parseInt(w), windDir:parseInt(d), temp:parseInt(t)});
-        };
-        
-        window.updateMeteoUI = () => {
-            document.getElementById('val-wind').innerText = gameState.wind;
-            document.getElementById('val-dir').innerText = gameState.windDir;
-            document.getElementById('val-temp').innerText = gameState.temp;
-        };
 
-        window.logSys = (txt) => push(ref(db, `games/drill_v30/logs`), {text:txt, user:myName, role:getRoleName(), time:Date.now()});
+        window.logSys = (txt) => push(ref(db, `games/drill_v31/logs`), {text:txt, user:myName, role:getRoleName(), time:Date.now()});
         
         window.sendChat = () => {
             let t = document.getElementById('chat-in').value;
@@ -545,42 +667,18 @@
             document.getElementById('rep-date').innerText = new Date().toLocaleString('he-IL');
             window.print();
         };
-
-        window.approveReq = (k, type) => {
-            if(type==='D9') {
-                 // D9 Approval Logic: just log it, Sector cmdr draws it.
-                 logSys(`אושר D9 ל${myRole}`); // Simplification
-            } else {
-                 addBank(type);
-            }
-            remove(ref(db, `games/drill_v30/requests/${k}`));
-        };
+        
+        window.resetAll = () => { if(confirm("איפוס?")) remove(ref(db, `games/drill_v31`)).then(()=>location.reload()); };
 
         // PTT
-        document.body.onkeydown = (e) => {
-            if(e.code==='Space' && document.activeElement.tagName!=='INPUT') {
-                 // Mock PTT - in real app needs HTTPS
-                 document.getElementById('chat-in').focus();
-            }
-        };
+        document.body.onkeydown = (e) => { if(e.code==='Space' && document.activeElement.tagName!=='INPUT') document.getElementById('chat-in').focus(); };
 
         function getGameTime() { return (Date.now()-gameState.start)*TIME_FACTOR; }
         function gameLoop() {
             let gt = getGameTime();
             let min = Math.floor(gt/60000);
             document.getElementById('clock-display').innerText = `T+${Math.floor(min/60)}:${String(min%60).padStart(2,'0')}`;
-            
-            // Fire Intensity Snooze Check (Every 15 min game time)
-            if(myRole==='admin' && min > 0 && min % 15 === 0 && min !== window.lastSnooze) {
-                window.lastSnooze = min;
-                if(confirm("עברו 15 דקות. להעלות דרגת אש?")) {
-                    // Logic to find all fires and increase level would go here
-                    logSys("העלאת דרגת אש");
-                }
-            }
         }
-        
-        window.resetAll = () => { if(confirm("איפוס?")) remove(ref(db, `games/drill_v30`)).then(()=>location.reload()); };
     </script>
 </body>
 </html>
