@@ -3,12 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מערכת שו"ב - V35 (Stable Master)</title>
+    <title>מערכת שו"ב - V36.1 (Fixed)</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
     <style>
         /* CORE */
         body { margin: 0; height: 100vh; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #2c3e50; display: flex; flex-direction: column; }
@@ -73,7 +76,7 @@
         @keyframes fadein { from {opacity:0; transform: translateY(-10px);} to {opacity:1; transform: translateY(0);} }
         @keyframes fadeout { from {opacity:1;} to {opacity:0;} }
 
-        /* ALLOCATION MODAL (Simple Overlay) */
+        /* ALLOCATION MODAL */
         #alloc-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; align-items:center; justify-content:center; }
         .alloc-box { background:white; padding:20px; border-radius:10px; width:300px; text-align:center; }
         .alloc-btn { display:block; width:100%; padding:10px; margin:5px 0; background:#ecf0f1; border:none; cursor:pointer; font-weight:bold; }
@@ -121,7 +124,7 @@
 
     <div id="login-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#2c3e50; z-index:9999; display:flex; align-items:center; justify-content:center;">
         <div class="bg-white p-5 rounded shadow text-center" style="width:500px;">
-            <h2 class="text-danger mb-4">מערכת שו"ב - V35</h2>
+            <h2 class="text-danger mb-4">מערכת שו"ב - V36.1</h2>
             <div class="mb-3">
                 <div class="row g-2">
                     <div class="col-4"><button class="btn btn-outline-dark w-100 py-3" onclick="setRole('admin',this)">מנהלת</button></div>
@@ -170,6 +173,15 @@
 
     <div id="main-container">
         <div id="map">
+            <div id="legend">
+                <div class="fw-bold border-bottom mb-1">מקרא</div>
+                <div class="leg-item"><div class="leg-color" style="background:yellow"></div> נמוכה</div>
+                <div class="leg-item"><div class="leg-color" style="background:orange"></div> בינונית</div>
+                <div class="leg-item"><div class="leg-color" style="background:red"></div> גבוהה</div>
+                <div class="leg-item"><div class="leg-color" style="background:purple"></div> קיצונית</div>
+                <div class="leg-item"><div class="leg-color" style="background:black"></div> שטח שרוף</div>
+            </div>
+
             <div class="draggable-panel" id="p-admin" style="top:20px; right:20px; display:none;">
                 <div class="panel-handle">מנהלת</div>
                 <div class="tool-grid">
@@ -230,13 +242,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet-image@0.4.0/leaflet-image.js"></script>
     
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, set, onValue, push, update, remove, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-        const config = { apiKey: "AIzaSyAprkTQI8h7ngt186yQSeYuBR37J7jjQBs", authDomain: "firesim2026.firebaseapp.com", databaseURL: "https://firesim2026-default-rtdb.firebaseio.com", projectId: "firesim2026", storageBucket: "firesim2026.firebasestorage.app", messagingSenderId: "816221488429", appId: "1:816221488429:web:8422845f75f8656d2abfa4", measurementId: "G-P77FYQT1C7" };
-        const db = getDatabase(initializeApp(config));
-        const GAME_ID = "drill_v35"; // Fresh DB
+    <script>
+        // CONFIG
+        const firebaseConfig = { apiKey: "AIzaSyAprkTQI8h7ngt186yQSeYuBR37J7jjQBs", authDomain: "firesim2026.firebaseapp.com", databaseURL: "https://firesim2026-default-rtdb.firebaseio.com", projectId: "firesim2026", storageBucket: "firesim2026.firebasestorage.app", messagingSenderId: "816221488429", appId: "1:816221488429:web:8422845f75f8656d2abfa4", measurementId: "G-P77FYQT1C7" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        
+        const GAME_ID = "drill_v36";
         const TIME_FACTOR = 10;
         const DEFAULT_POS = [32.928, 35.082];
 
@@ -267,11 +279,11 @@
 
         function getRoleName() { return myRole==='admin'?'מנהלת':(myRole==='ic'?'מפקד אירוע':`מפקד גזרה ${mySector}`); }
         function checkIcStart() {
-            get(ref(db, `games/${GAME_ID}/ic_bank`)).then(s => {
+            db.ref(`games/${GAME_ID}/ic_bank`).get().then(s => {
                 if(!s.exists()) {
-                    push(ref(db, `games/${GAME_ID}/ic_bank`), {type:'saar'});
-                    push(ref(db, `games/${GAME_ID}/ic_bank`), {type:'saar'});
-                    push(ref(db, `games/${GAME_ID}/ic_bank`), {type:'eshed'});
+                    db.ref(`games/${GAME_ID}/ic_bank`).push({type:'saar'});
+                    db.ref(`games/${GAME_ID}/ic_bank`).push({type:'saar'});
+                    db.ref(`games/${GAME_ID}/ic_bank`).push({type:'eshed'});
                 }
             });
         }
@@ -300,31 +312,31 @@
             }
             if(activeTool==='place_unit' && selectedToken) { placeUnit(selectedToken, loc); return; }
             if(activeTool==='move_dest' && selectedToken) {
-                update(ref(db, `games/${GAME_ID}/units/${selectedToken}`), { destLat:loc.lat, destLng:loc.lng, status:'moving' });
+                db.ref(`games/${GAME_ID}/units/${selectedToken}`).update({ destLat:loc.lat, destLng:loc.lng, status:'moving' });
                 logSys("פקודת תנועה");
                 activeTool=null; selectedToken=null; document.getElementById('map').style.cursor='grab';
                 return;
             }
             if(!activeTool) return;
 
-            if(activeTool==='fire') push(ref(db, `games/${GAME_ID}/fire_nodes`), { lat:loc.lat, lng:loc.lng, start:getGameTime(), active:true, level:1, windDir:gameState.windDir });
-            if(activeTool==='water') push(ref(db, `games/${GAME_ID}/units`), {type:'marker', sub:'water', lat:loc.lat, lng:loc.lng});
-            if(activeTool==='pool') push(ref(db, `games/${GAME_ID}/units`), {type:'marker', sub:'pool', lat:loc.lat, lng:loc.lng});
-            if(activeTool==='staging') push(ref(db, `games/${GAME_ID}/units`), {type:'marker', sub:'staging', lat:loc.lat, lng:loc.lng});
-            if(activeTool==='cp') push(ref(db, `games/${GAME_ID}/units`), {type:'marker', sub:'cp', lat:loc.lat, lng:loc.lng});
-            if(activeTool==='sym_risk') push(ref(db, `games/${GAME_ID}/units`), {type:'marker', sub:'sym_risk', lat:loc.lat, lng:loc.lng});
-            if(activeTool==='sym_defense') push(ref(db, `games/${GAME_ID}/units`), {type:'marker', sub:'sym_defense', lat:loc.lat, lng:loc.lng, radius:100});
+            if(activeTool==='fire') db.ref(`games/${GAME_ID}/fire_nodes`).push({ lat:loc.lat, lng:loc.lng, start:getGameTime(), active:true, level:1, windDir:gameState.windDir });
+            if(activeTool==='water') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'water', lat:loc.lat, lng:loc.lng});
+            if(activeTool==='pool') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'pool', lat:loc.lat, lng:loc.lng});
+            if(activeTool==='staging') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'staging', lat:loc.lat, lng:loc.lng});
+            if(activeTool==='cp') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'cp', lat:loc.lat, lng:loc.lng});
+            if(activeTool==='sym_risk') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'sym_risk', lat:loc.lat, lng:loc.lng});
+            if(activeTool==='sym_defense') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'sym_defense', lat:loc.lat, lng:loc.lng, radius:100});
 
             if(!['arrow','dozer','sector_draw','route','plane_red','plane_blue','sym_defense'].includes(activeTool)) resetTool();
         }
 
         function onMapDblClick() {
             if(activeTool==='sector_draw' && polyPoints.length>2) {
-                push(ref(db, `games/${GAME_ID}/units`), {type:'sector', name:prompt("שם הגזרה:")||"?", points:polyPoints});
+                db.ref(`games/${GAME_ID}/units`).push({type:'sector', name:prompt("שם הגזרה:")||"?", points:polyPoints});
                 polyPoints=[]; activeTool=null;
             }
             if(activeTool==='route' && polyPoints.length>1) {
-                push(ref(db, `games/${GAME_ID}/units`), {type:'drawing', sub:'route', points:polyPoints});
+                db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:'route', points:polyPoints});
                 polyPoints=[]; activeTool=null;
             }
         }
@@ -353,13 +365,13 @@
                 let sub = activeTool;
                 if(sub==='dozer') {
                     let d = map.distance(dragStart,e.latlng);
-                    push(ref(db, `games/${GAME_ID}/units`), {type:'drawing', sub:'dozer', p1:dragStart, p2:e.latlng, start:getGameTime(), duration:(d/3000)*3600000});
+                    db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:'dozer', p1:dragStart, p2:e.latlng, start:getGameTime(), duration:(d/3000)*3600000});
                 } else if(sub.includes('plane')) {
-                    push(ref(db, `games/${GAME_ID}/units`), {type:'drawing', sub:sub, p1:dragStart, p2:e.latlng, created:getGameTime()});
+                    db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:sub, p1:dragStart, p2:e.latlng, created:getGameTime()});
                 } else if(sub==='sym_defense') {
-                    push(ref(db, `games/${GAME_ID}/units`), {type:'marker', sub:'sym_defense', lat:dragStart.lat, lng:dragStart.lng, radius:map.distance(dragStart,e.latlng)});
+                    db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'sym_defense', lat:dragStart.lat, lng:dragStart.lng, radius:map.distance(dragStart,e.latlng)});
                 } else {
-                    push(ref(db, `games/${GAME_ID}/units`), {type:'drawing', sub:'arrow', p1:dragStart, p2:e.latlng});
+                    db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:'arrow', p1:dragStart, p2:e.latlng});
                 }
                 dragStart=null; map.dragging.enable(); if(tempLine) map.removeLayer(tempLine); activeTool=null; document.getElementById('map').style.cursor='grab';
             }
@@ -382,7 +394,7 @@
                     for(let j=i+1; j<activeList.length; j++) {
                         let n2 = activeList[j];
                         if(n2.active && map.distance([n1.lat,n1.lng], [n2.lat,n2.lng]) < 15) {
-                            updates[`${n2.k}/active`] = false; // Kill duplicate
+                            updates[`${n2.k}/active`] = false; 
                         }
                     }
                 });
@@ -397,13 +409,13 @@
                         updates[`${n.k}/lastDrop`] = dist;
                         let rad = (n.windDir-90)*(Math.PI/180);
                         let off = dist / 111111;
-                        push(ref(db, `games/${GAME_ID}/units`), {
+                        db.ref(`games/${GAME_ID}/units`).push({
                             type:'burnt_spot', lat: n.lat + off*Math.sin(rad), lng: n.lng + off*Math.cos(rad), radius: dist*0.3
                         });
                     }
                 });
             }
-            if(Object.keys(updates).length>0) update(ref(db, `games/${GAME_ID}/fire_nodes`), updates);
+            if(Object.keys(updates).length>0) db.ref(`games/${GAME_ID}/fire_nodes`).update(updates);
 
             // 2. UNITS
             let uUpdates = {};
@@ -438,32 +450,44 @@
 
                 // Work
                 if(u.status==='idle' && u.water > 0) {
-                    // Check fire proximity
                     let nearFire = false;
                     if(nodes) Object.values(nodes).forEach(n => { if(n.active && map.distance([u.lat,u.lng],[n.lat,n.lng])<100) nearFire=true; });
                     
                     if(nearFire) {
                         uUpdates[`${k}/water`] = u.water - 0.2;
-                    } else {
-                        // Don't drain
                     }
 
                     if(u.water <= 0) {
-                        // Auto Refill logic (omitted for brevity, same as V33)
+                        let nearest=null, min=999999;
+                        let targetType = (u.sub==='heli')?'pool':'water';
+                        waterSources.forEach(w => {
+                            if(w.sub===targetType) {
+                                let d = map.distance([u.lat,u.lng],[w.lat,w.lng]);
+                                if(d<min) { min=d; nearest=w; }
+                            }
+                        });
+                        if(nearest) {
+                            uUpdates[`${k}/status`] = 'moving_to_refill';
+                            uUpdates[`${k}/destLat`] = nearest.lat;
+                            uUpdates[`${k}/destLng`] = nearest.lng;
+                            uUpdates[`${k}/lastWorkLat`] = u.lat;
+                            uUpdates[`${k}/lastWorkLng`] = u.lng;
+                            logSys(`${u.sub} ${u.callSign} יוצא למילוי`);
+                        }
                     }
                 }
             });
-            if(Object.keys(uUpdates).length>0) update(ref(db, `games/${GAME_ID}/units`), uUpdates);
+            if(Object.keys(uUpdates).length>0) db.ref(`games/${GAME_ID}/units`).update(uUpdates);
         }
 
         // --- UI ---
         window.alloc = (type, id) => { pendingAllocId = id; document.getElementById('alloc-modal').style.display='flex'; };
         window.closeAlloc = () => document.getElementById('alloc-modal').style.display='none';
         window.confirmAlloc = (sec) => {
-            get(ref(db, `games/${GAME_ID}/ic_bank/${pendingAllocId}`)).then(s => {
+            db.ref(`games/${GAME_ID}/ic_bank/${pendingAllocId}`).get().then(s => {
                 let type = s.val().type;
-                remove(ref(db, `games/${GAME_ID}/ic_bank/${pendingAllocId}`));
-                push(ref(db, `games/${GAME_ID}/sector_staging`), {type:type, sector:sec, status:'available'});
+                db.ref(`games/${GAME_ID}/ic_bank/${pendingAllocId}`).remove();
+                db.ref(`games/${GAME_ID}/sector_staging`).push({type:type, sector:sec, status:'available'});
                 logSys(`הוקצה ${type} לגזרה ${sec}`);
                 closeAlloc();
             });
@@ -472,14 +496,13 @@
         window.deleteSector = () => {
             let n = prompt("שם גזרה למחיקה:");
             if(n) {
-                get(ref(db, `games/${GAME_ID}/units`)).then(s => {
+                db.ref(`games/${GAME_ID}/units`).get().then(s => {
                     let d=s.val();
                     if(d) Object.entries(d).forEach(([k,v]) => { 
-                        if(v.type==='sector' && v.name===n) remove(ref(db, `games/${GAME_ID}/units/${k}`)); 
-                        // Return units to bank
+                        if(v.type==='sector' && v.name===n) db.ref(`games/${GAME_ID}/units/${k}`).remove(); 
                         if(v.type==='unit' && v.sector===n) {
-                            remove(ref(db, `games/${GAME_ID}/units/${k}`));
-                            push(ref(db, `games/${GAME_ID}/ic_bank`), {type:v.sub});
+                            db.ref(`games/${GAME_ID}/units/${k}`).remove();
+                            db.ref(`games/${GAME_ID}/ic_bank`).push({type:v.sub});
                         }
                     });
                     logSys(`גזרה ${n} נמחקה וכוחותיה הוחזרו`);
@@ -489,17 +512,17 @@
 
         // --- RENDER ---
         function syncData() {
-            onValue(ref(db, `games/${GAME_ID}/state`), s => {
+            db.ref(`games/${GAME_ID}/state`).on('value', s => {
                 let v=s.val(); if(v) { 
                     if(v.lastWindChange !== gameState.lastWindChange && myRole==='admin') handleWindChange(v);
                     gameState={...gameState,...v}; 
                     document.getElementById('val-wind').innerText=v.wind;
                     document.getElementById('val-temp').innerText=v.temp;
                     document.getElementById('wind-arrow').style.transform=`translateX(-50%) rotate(${v.windDir}deg)`;
-                } else if(myRole==='admin') set(ref(db, `games/${GAME_ID}/state`), gameState);
+                } else if(myRole==='admin') db.ref(`games/${GAME_ID}/state`).set(gameState);
             });
 
-            onValue(ref(db, `games/${GAME_ID}/units`), s => {
+            db.ref(`games/${GAME_ID}/units`).on('value', s => {
                 let d = s.val();
                 layers.units.clearLayers(); layers.polys.clearLayers(); layers.markers.clearLayers(); layers.drawings.clearLayers(); layers.burnt.clearLayers();
                 
@@ -523,23 +546,23 @@
                 if(myRole==='admin') runPhysics(window.fireNodesCache, d, getGameTime());
             });
 
-            onValue(ref(db, `games/${GAME_ID}/fire_nodes`), s => {
+            db.ref(`games/${GAME_ID}/fire_nodes`).on('value', s => {
                 window.fireNodesCache = s.val();
                 layers.fire.clearLayers(); layers.pred.clearLayers();
                 drawFire(s.val(), getGameTime());
             });
 
-            if(myRole==='admin'||myRole==='ic') onValue(ref(db, `games/${GAME_ID}/requests`), s => renderRequests(s.val()));
-            if(myRole==='ic'||myRole==='admin') onValue(ref(db, `games/${GAME_ID}/ic_bank`), s => { icBank=s.val()||{}; renderIcBank(); });
-            if(myRole==='sector') onValue(ref(db, `games/${GAME_ID}/sector_staging`), s => { 
+            if(myRole==='admin'||myRole==='ic') db.ref(`games/${GAME_ID}/requests`).on('value', s => renderRequests(s.val()));
+            if(myRole==='ic'||myRole==='admin') db.ref(`games/${GAME_ID}/ic_bank`).on('value', s => { icBank=s.val()||{}; renderIcBank(); });
+            if(myRole==='sector') db.ref(`games/${GAME_ID}/sector_staging`).on('value', s => { 
                 sectorUnits={}; 
                 if(s.val()) Object.entries(s.val()).forEach(([k,v])=>{ if(v.sector===mySector && v.status==='available') { if(!sectorUnits[v.type]) sectorUnits[v.type]=[]; sectorUnits[v.type].push(k); } });
                 initSectorButtons();
             });
-            onValue(ref(db, `games/${GAME_ID}/logs`), s => renderLogs(s.val()));
+            db.ref(`games/${GAME_ID}/logs`).on('value', s => renderLogs(s.val()));
         }
 
-        // Render Functions (Simplified for brevity, logic same as V33)
+        // Render Functions
         function renderObject(k,u) {
             if(u.type==='unit') {
                 if(myRole==='sector' && u.sector!==mySector) return;
@@ -562,7 +585,7 @@
             if(u.type==='sector') L.polygon(u.points, {color:'orange', fillOpacity:0, dashArray:'5,5', interactive:false}).addTo(layers.polys).bindTooltip(u.name,{permanent:true,direction:"center"});
             if(u.type==='drawing') {
                 if(u.sub.includes('plane')) {
-                    if(getGameTime()-u.created > 1800000) { if(myRole==='admin') remove(ref(db,`games/${GAME_ID}/units/${k}`)); return; }
+                    if(getGameTime()-u.created > 1800000) { if(myRole==='admin') db.ref(`games/${GAME_ID}/units/${k}`).remove(); return; }
                     let c = u.sub.includes('red')?'red':'blue';
                     L.polyline([u.p1,u.p2], {color:c, weight:8, dashArray:'1,15', lineCap:'round'}).addTo(layers.drawings);
                 } else if(u.sub==='dozer') {
@@ -595,7 +618,7 @@
         }
 
         function handleWindChange(v) {
-            get(ref(db, `games/${GAME_ID}/fire_nodes`)).then(s => {
+            db.ref(`games/${GAME_ID}/fire_nodes`).get().then(s => {
                 let nodes = s.val(); if(!nodes) return;
                 let updates = {};
                 let gt = getGameTime();
@@ -607,17 +630,17 @@
                         let rad = (n.windDir-90)*(Math.PI/180);
                         let newLat = n.lat + (dist/111111)*Math.sin(rad);
                         let newLng = n.lng + (dist/111111)*Math.cos(rad);
-                        push(ref(db, `games/${GAME_ID}/fire_nodes`), {
+                        db.ref(`games/${GAME_ID}/fire_nodes`).push({
                             lat: newLat, lng: newLng, start: gt, active: true, level: n.level, windDir: v.windDir, windSpeed: v.wind
                         });
                     }
                 });
-                update(ref(db, `games/${GAME_ID}/fire_nodes`), updates);
+                db.ref(`games/${GAME_ID}/fire_nodes`).update(updates);
             });
         }
 
         // --- COMMON ---
-        window.reqRes = (t) => { push(ref(db, `games/${GAME_ID}/requests`), {type:t, by:myName, role:getRoleName(), sector:mySector, time:Date.now(), status:'pending_ic'}); showToast("בקשה נשלחה"); };
+        window.reqRes = (t) => { db.ref(`games/${GAME_ID}/requests`).push({type:t, by:myName, role:getRoleName(), sector:mySector, time:Date.now(), status:'pending_ic'}); showToast("בקשה נשלחה"); };
         window.reqD9 = () => window.reqRes('D9');
         function renderRequests(d) {
             let div = document.getElementById('req-container'); div.innerHTML="";
@@ -630,8 +653,8 @@
             });
         }
         window.approve = (k,step,type) => {
-            if(step===1) update(ref(db, `games/${GAME_ID}/requests/${k}`), {status:'pending_admin'});
-            else { remove(ref(db, `games/${GAME_ID}/requests/${k}`)); push(ref(db, `games/${GAME_ID}/ic_bank`), {type:type}); logSys(`אושר ${type}`); }
+            if(step===1) db.ref(`games/${GAME_ID}/requests/${k}`).update({status:'pending_admin'});
+            else { db.ref(`games/${GAME_ID}/requests/${k}`).remove(); db.ref(`games/${GAME_ID}/ic_bank`).push({type:type}); logSys(`אושר ${type}`); }
         };
         function renderIcBank() {
             let div = document.getElementById('ic-bank-tools'); div.innerHTML="";
@@ -661,24 +684,24 @@
             } else window.reqRes(t);
         };
         window.placeUnit = (token, loc) => {
-            remove(ref(db, `games/${GAME_ID}/sector_staging/${token}`));
+            db.ref(`games/${GAME_ID}/sector_staging/${token}`).remove();
             let type = Object.keys(sectorUnits).find(k => sectorUnits[k].includes(token));
             if(type==='D9') { activeTool='dozer'; showToast("סמן קו עבודה ל-D9"); } 
             else {
-                push(ref(db, `games/${GAME_ID}/units`), { type:'unit', sub:type, lat:loc.lat, lng:loc.lng, sector:mySector, water:100, status:'idle', callSign:Math.floor(Math.random()*100)+400 });
+                db.ref(`games/${GAME_ID}/units`).push({ type:'unit', sub:type, lat:loc.lat, lng:loc.lng, sector:mySector, water:100, status:'idle', callSign:Math.floor(Math.random()*100)+400 });
                 logSys(`הוצב ${type}`); resetTool();
             }
         };
 
         // --- UTILS ---
-        window.editMeteo = () => { let w=prompt("רוח"), d=prompt("כיוון"), t=prompt("טמפ"); if(w) update(ref(db, `games/${GAME_ID}/state`), {wind:w, windDir:d, temp:t, lastWindChange:Date.now()}); };
+        window.editMeteo = () => { let w=prompt("רוח"), d=prompt("כיוון"), t=prompt("טמפ"); if(w) db.ref(`games/${GAME_ID}/state`).update({wind:w, windDir:d, temp:t, lastWindChange:Date.now()}); };
         window.togglePred = () => { showPrediction=!showPrediction; syncData(); };
         window.setTool = (t,e) => { if(e) e.stopPropagation(); activeTool=t; if(t!=='move_select') selectedToken=null; polyPoints=[]; document.getElementById('map').style.cursor='crosshair'; };
         window.resetTool = () => { activeTool=null; document.getElementById('map').style.cursor='grab'; };
         window.moveUnit = () => { activeTool='move_select'; document.getElementById('map').style.cursor='pointer'; showToast("בחר רכב"); };
-        window.logSys = (t) => push(ref(db, `games/${GAME_ID}/logs`), {text:t, user:myName, role:getRoleName(), time:Date.now()});
+        window.logSys = (t) => db.ref(`games/${GAME_ID}/logs`).push({text:t, user:myName, role:getRoleName(), time:Date.now()});
         window.sendChat = () => { let i=document.getElementById('chat-in'); if(i.value) logSys(i.value); i.value=""; };
-        window.resetGame = () => { if(confirm("איפוס?")) remove(ref(db, `games/${GAME_ID}`)).then(()=>location.reload()); };
+        window.resetGame = () => { if(confirm("איפוס?")) db.ref(`games/${GAME_ID}`).remove().then(()=>location.reload()); };
         window.showToast = (msg) => { let d=document.createElement('div'); d.className='toast-msg'; d.innerText=msg; document.getElementById('toast-container').appendChild(d); setTimeout(()=>d.remove(),3000); };
         window.genReport = () => {
             document.getElementById('rep-date').innerText = new Date().toLocaleString();
@@ -699,6 +722,16 @@
                 tb.innerHTML += `<tr><td>${t}</td><td>${l.role}</td><td>${l.user}</td><td>${l.text}</td></tr>`;
             });
             div.scrollTop=div.scrollHeight;
+        }
+        function makeDraggable() {
+            document.querySelectorAll('.draggable-panel').forEach(elm => {
+                let h = elm.querySelector('.panel-handle');
+                h.onmousedown = e => {
+                    e.preventDefault(); let x=e.clientX, y=e.clientY;
+                    document.onmousemove = e => { e.preventDefault(); elm.style.top=(elm.offsetTop-(y-e.clientY))+"px"; elm.style.left=(elm.offsetLeft-(x-e.clientX))+"px"; x=e.clientX; y=e.clientY; };
+                    document.onmouseup = () => { document.onmousemove=null; };
+                };
+            });
         }
         document.body.onkeydown = (e) => { if(e.code==='Space' && document.activeElement.tagName!=='INPUT') { e.preventDefault(); document.getElementById('chat-in').focus(); } };
         function getGameTime() { return Date.now() + ((Date.now()-gameState.start)*(TIME_FACTOR-1)); }
