@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מערכת שו"ב - V36.1 (Fixed)</title>
+    <title>סימולטור ניהול שריפה - V37</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -13,10 +13,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <style>
-        /* CORE */
         body { margin: 0; height: 100vh; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #2c3e50; display: flex; flex-direction: column; }
         
-        /* PRINT */
         @media print {
             body * { visibility: hidden; }
             #report-view, #report-view * { visibility: visible; }
@@ -25,9 +23,7 @@
             #map-snapshot img { max-width: 100%; border: 2px solid black; }
         }
 
-        /* TOP BAR */
         #top-bar { height: 70px; background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; border-bottom: 4px solid #e67e22; z-index: 2000; }
-        
         .logo-box { width: 50px; height: 50px; background: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; overflow: hidden; border: 2px solid #ccc; }
         .logo-box img { width: 100%; height: 100%; object-fit: contain; }
 
@@ -39,17 +35,14 @@
 
         .clock-display { font-family: monospace; font-size: 1.6rem; color: #f1c40f; font-weight: bold; text-shadow: 1px 1px 2px black; }
 
-        /* WIND ROSE */
         .wind-widget { display: flex; align-items: center; gap: 10px; }
         .wind-rose { position: relative; width: 40px; height: 40px; background: radial-gradient(circle, #34495e, #2c3e50); border-radius: 50%; border: 2px solid #ecf0f1; }
         .wind-arrow { position: absolute; width: 4px; height: 18px; background: #e74c3c; top: 2px; left: 50%; transform-origin: 50% 200%; transition: transform 1s; clip-path: polygon(50% 0, 0 100%, 100% 100%); }
 
-        /* LAYOUT */
         #main-container { display: flex; flex: 1; height: calc(100% - 70px); }
         #map { flex: 1; background: #333; position: relative; }
         #sidebar { width: 360px; background: #f8f9fa; border-right: 2px solid #ccc; display: flex; flex-direction: column; z-index: 1500; }
 
-        /* DRAGGABLE PANELS */
         .draggable-panel { position: absolute; background: rgba(255, 255, 255, 0.98); border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 1000; min-width: 170px; display: flex; flex-direction: column; overflow: hidden; resize: both; border: 1px solid #95a5a6; }
         .panel-handle { background: #2c3e50; height: 28px; cursor: move; display: flex; justify-content: center; align-items: center; color: white; font-size: 0.85rem; font-weight: bold; }
         .tool-grid { display: grid; grid-template-columns: 1fr; gap: 5px; padding: 8px; overflow-y: auto; max-height: 400px; }
@@ -61,7 +54,6 @@
         .badge-count { background: #c0392b; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; margin-right: auto; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(40,167,69,0.4); } 70% { box-shadow: 0 0 0 10px rgba(40,167,69,0); } 100% { box-shadow: 0 0 0 0 rgba(40,167,69,0); } }
 
-        /* ICONS */
         .icon-unit { background: white; border: 2px solid black; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 11px; position: relative; box-shadow: 2px 2px 4px rgba(0,0,0,0.5); transition: all 0.5s linear; }
         .unit-saar { width: 40px; height: 24px; border-color: #c0392b; color: #c0392b; }
         .unit-eshed { width: 50px; height: 28px; border-color: #8e44ad; color: #8e44ad; }
@@ -70,26 +62,32 @@
         .water-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 4px; background: #ddd; }
         .water-fill { height: 100%; background: #3498db; transition: width 0.5s; }
 
-        /* TOAST */
+        #legend { position: absolute; bottom: 20px; left: 20px; background: rgba(255,255,255,0.9); padding: 10px; border-radius: 5px; z-index: 1000; font-size: 0.8rem; pointer-events: none; }
+        .leg-item { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+        .leg-color { width: 12px; height: 12px; border-radius: 50%; }
+
         #toast-container { position: absolute; top: 90px; left: 50%; transform: translateX(-50%); z-index: 9999; pointer-events: none; }
         .toast-msg { background: rgba(44, 62, 80, 0.95); color: white; padding: 10px 25px; border-radius: 25px; margin-bottom: 10px; font-weight: bold; box-shadow: 0 5px 15px rgba(0,0,0,0.3); animation: fadein 0.3s, fadeout 0.5s 2.5s forwards; }
         @keyframes fadein { from {opacity:0; transform: translateY(-10px);} to {opacity:1; transform: translateY(0);} }
         @keyframes fadeout { from {opacity:1;} to {opacity:0;} }
 
-        /* ALLOCATION MODAL */
         #alloc-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; align-items:center; justify-content:center; }
         .alloc-box { background:white; padding:20px; border-radius:10px; width:300px; text-align:center; }
         .alloc-btn { display:block; width:100%; padding:10px; margin:5px 0; background:#ecf0f1; border:none; cursor:pointer; font-weight:bold; }
         .alloc-btn:hover { background:#bdc3c7; }
 
-        /* REPORT */
         #report-view { display: none; color: black; font-family: serif; padding: 40px; }
         .rep-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
         .rep-table th, .rep-table td { border: 1px solid #999; padding: 8px; text-align: right; }
         .rep-table th { background: #eee; }
+
+        /* Credit Style */
+        .credit-box { position: absolute; bottom: 5px; right: 10px; font-size: 10px; color: rgba(255,255,255,0.5); z-index: 9999; pointer-events: none; }
     </style>
 </head>
 <body>
+
+    <div class="credit-box">נוצר ע"י נצר שמעוני</div>
 
     <div id="alloc-modal">
         <div class="alloc-box">
@@ -124,10 +122,10 @@
 
     <div id="login-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#2c3e50; z-index:9999; display:flex; align-items:center; justify-content:center;">
         <div class="bg-white p-5 rounded shadow text-center" style="width:500px;">
-            <h2 class="text-danger mb-4">מערכת שו"ב - V36.1</h2>
+            <h2 class="text-danger mb-4">סימולטור ניהול שריפה - V37</h2>
             <div class="mb-3">
                 <div class="row g-2">
-                    <div class="col-4"><button class="btn btn-outline-dark w-100 py-3" onclick="setRole('admin',this)">מנהלת</button></div>
+                    <div class="col-4"><button class="btn btn-outline-dark w-100 py-3" onclick="setRole('admin',this)">חפ"ק</button></div>
                     <div class="col-4"><button class="btn btn-outline-dark w-100 py-3" onclick="setRole('ic',this)">מפקד אירוע</button></div>
                     <div class="col-4"><button class="btn btn-outline-dark w-100 py-3" onclick="setRole('sector',this)">מפקד גזרה</button></div>
                 </div>
@@ -183,7 +181,7 @@
             </div>
 
             <div class="draggable-panel" id="p-admin" style="top:20px; right:20px; display:none;">
-                <div class="panel-handle">מנהלת</div>
+                <div class="panel-handle">חפ"ק (מנהלת)</div>
                 <div class="tool-grid">
                     <button class="btn-tool" onclick="setTool('fire',event)"><i class="fa-solid fa-fire text-danger"></i> הצתת אש</button>
                     <button class="btn-tool" onclick="editMeteo()"><i class="fa-solid fa-cloud"></i> מזג אוויר</button>
@@ -248,36 +246,60 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
         
-        const GAME_ID = "drill_v36";
+        const GAME_ID = "drill_v37"; // V37
         const TIME_FACTOR = 10;
         const DEFAULT_POS = [32.928, 35.082];
 
-        let map, layers={}, myRole, myName, mySector, activeTool, selectedToken, pendingAllocId;
+        // GLOBAL VARS ATTACHED TO WINDOW
+        window.map = null;
+        window.layers = {};
+        window.myRole = null;
+        window.myName = "";
+        window.mySector = null;
+        window.activeTool = null;
+        window.selectedToken = null;
+        window.pendingAllocId = null;
+        
         let polyPoints=[], dragStart=null, tempLine=null;
         let gameState = { start:Date.now(), wind:10, windDir:270, temp:25 };
         let showPrediction = false, sectorUnits = {}, icBank = {};
 
         // --- INIT ---
-        window.setRole = (r,el) => { document.querySelectorAll('.btn-outline-dark').forEach(b=>b.classList.remove('active')); el.classList.add('active'); myRole=r; document.getElementById('sector-sel').style.display=(r==='sector')?'block':'none'; };
+        window.setRole = (r,el) => { 
+            document.querySelectorAll('.btn-outline-dark').forEach(b=>b.classList.remove('active')); 
+            el.classList.add('active'); 
+            window.myRole=r; 
+            document.getElementById('sector-sel').style.display=(r==='sector')?'block':'none'; 
+        };
         
         window.login = () => {
-            if(!myRole) return showToast("בחר תפקיד");
-            myName = document.getElementById('username').value || "User";
-            if(myRole==='sector') mySector = document.getElementById('sector-sel').value;
+            if(!window.myRole) return showToast("בחר תפקיד");
+            window.myName = document.getElementById('username').value || "User";
+            if(window.myRole==='sector') window.mySector = document.getElementById('sector-sel').value;
             
             document.getElementById('login-overlay').style.display='none';
-            document.getElementById('user-display').innerText = myName;
-            document.getElementById('role-display').innerText = getRoleName();
+            document.getElementById('user-display').innerText = window.myName;
+            document.getElementById('role-display').innerText = getRoleNameDisplay();
             
-            if(myRole==='admin') { document.getElementById('p-admin').style.display='flex'; }
-            if(myRole==='ic') { document.getElementById('p-ic').style.display='flex'; checkIcStart(); }
-            if(myRole==='sector') { document.getElementById('p-sector').style.display='flex'; initSectorButtons(); }
+            if(window.myRole==='admin') { document.getElementById('p-admin').style.display='flex'; }
+            if(window.myRole==='ic') { document.getElementById('p-ic').style.display='flex'; checkIcStart(); }
+            if(window.myRole==='sector') { document.getElementById('p-sector').style.display='flex'; initSectorButtons(); }
 
             makeDraggable();
             setTimeout(() => { initMap(); syncData(); setInterval(gameLoop, 1000); }, 500);
         };
 
-        function getRoleName() { return myRole==='admin'?'מנהלת':(myRole==='ic'?'מפקד אירוע':`מפקד גזרה ${mySector}`); }
+        function getRoleNameDisplay() { 
+            if(window.myRole==='admin') return 'חפ"ק';
+            if(window.myRole==='ic') return 'מפקד אירוע';
+            return `מפקד גזרה ${window.mySector}`; 
+        }
+        function getRoleKey() { // Internal key for DB
+            if(window.myRole==='admin') return 'admin'; 
+            if(window.myRole==='ic') return 'ic'; 
+            return `sector_${window.mySector}`;
+        }
+
         function checkIcStart() {
             db.ref(`games/${GAME_ID}/ic_bank`).get().then(s => {
                 if(!s.exists()) {
@@ -290,71 +312,74 @@
 
         // --- MAP ---
         function initMap() {
-            map = L.map('map', {doubleClickZoom:false}).setView([32.73, 35.03], 14);
-            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap', crossOrigin: true }).addTo(map);
+            window.map = L.map('map', {doubleClickZoom:false}).setView([32.73, 35.03], 14);
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap', crossOrigin: true }).addTo(window.map);
             
-            ['burnt','fire','pred','polys','units','drawings','markers'].forEach(l => layers[l]=L.layerGroup().addTo(map));
+            ['burnt','fire','pred','polys','units','drawings','markers'].forEach(l => window.layers[l]=L.layerGroup().addTo(window.map));
             
-            map.on('click', onMapClick);
-            map.on('dblclick', onMapDblClick);
-            map.on('mousedown', onMouseDown);
-            map.on('mousemove', onMouseMove);
-            map.on('mouseup', onMouseUp);
+            window.map.on('click', onMapClick);
+            window.map.on('dblclick', onMapDblClick);
+            window.map.on('mousedown', onMouseDown);
+            window.map.on('mousemove', onMouseMove);
+            window.map.on('mouseup', onMouseUp);
         }
 
         // --- INTERACTION ---
         function onMapClick(e) {
             let loc = e.latlng;
-            if(activeTool==='sector_draw' || activeTool==='route') {
+            if(window.activeTool==='sector_draw' || window.activeTool==='route') {
                 polyPoints.push(loc);
-                L.marker(loc,{icon:L.divIcon({className:'bg-dark rounded-circle', iconSize:[5,5]})}).addTo(layers.drawings);
+                L.marker(loc,{icon:L.divIcon({className:'bg-dark rounded-circle', iconSize:[5,5]})}).addTo(window.layers.drawings);
                 return;
             }
-            if(activeTool==='place_unit' && selectedToken) { placeUnit(selectedToken, loc); return; }
-            if(activeTool==='move_dest' && selectedToken) {
-                db.ref(`games/${GAME_ID}/units/${selectedToken}`).update({ destLat:loc.lat, destLng:loc.lng, status:'moving' });
+            if(window.activeTool==='place_unit' && window.selectedToken) { placeUnit(window.selectedToken, loc); return; }
+            if(window.activeTool==='move_dest' && window.selectedToken) {
+                db.ref(`games/${GAME_ID}/units/${window.selectedToken}`).update({ destLat:loc.lat, destLng:loc.lng, status:'moving' });
                 logSys("פקודת תנועה");
-                activeTool=null; selectedToken=null; document.getElementById('map').style.cursor='grab';
+                window.activeTool=null; window.selectedToken=null; document.getElementById('map').style.cursor='grab';
                 return;
             }
-            if(!activeTool) return;
+            if(!window.activeTool) return;
 
-            if(activeTool==='fire') db.ref(`games/${GAME_ID}/fire_nodes`).push({ lat:loc.lat, lng:loc.lng, start:getGameTime(), active:true, level:1, windDir:gameState.windDir });
-            if(activeTool==='water') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'water', lat:loc.lat, lng:loc.lng});
-            if(activeTool==='pool') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'pool', lat:loc.lat, lng:loc.lng});
-            if(activeTool==='staging') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'staging', lat:loc.lat, lng:loc.lng});
-            if(activeTool==='cp') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'cp', lat:loc.lat, lng:loc.lng});
-            if(activeTool==='sym_risk') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'sym_risk', lat:loc.lat, lng:loc.lng});
-            if(activeTool==='sym_defense') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'sym_defense', lat:loc.lat, lng:loc.lng, radius:100});
+            if(window.activeTool==='fire') {
+                db.ref(`games/${GAME_ID}/fire_nodes`).push({ lat:loc.lat, lng:loc.lng, start:getGameTime(), active:true, level:1, windDir:gameState.windDir });
+                logSys("הוצת מוקד אש");
+            }
+            if(window.activeTool==='water') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'water', lat:loc.lat, lng:loc.lng});
+            if(window.activeTool==='pool') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'pool', lat:loc.lat, lng:loc.lng});
+            if(window.activeTool==='staging') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'staging', lat:loc.lat, lng:loc.lng});
+            if(window.activeTool==='cp') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'cp', lat:loc.lat, lng:loc.lng});
+            if(window.activeTool==='sym_risk') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'sym_risk', lat:loc.lat, lng:loc.lng});
+            if(window.activeTool==='sym_defense') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'sym_defense', lat:loc.lat, lng:loc.lng, radius:100});
 
-            if(!['arrow','dozer','sector_draw','route','plane_red','plane_blue','sym_defense'].includes(activeTool)) resetTool();
+            if(!['arrow','dozer','sector_draw','route','plane_red','plane_blue','sym_defense'].includes(window.activeTool)) resetTool();
         }
 
         function onMapDblClick() {
-            if(activeTool==='sector_draw' && polyPoints.length>2) {
+            if(window.activeTool==='sector_draw' && polyPoints.length>2) {
                 db.ref(`games/${GAME_ID}/units`).push({type:'sector', name:prompt("שם הגזרה:")||"?", points:polyPoints});
-                polyPoints=[]; activeTool=null;
+                polyPoints=[]; window.activeTool=null;
             }
-            if(activeTool==='route' && polyPoints.length>1) {
+            if(window.activeTool==='route' && polyPoints.length>1) {
                 db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:'route', points:polyPoints});
-                polyPoints=[]; activeTool=null;
+                polyPoints=[]; window.activeTool=null;
             }
         }
 
-        function onMouseDown(e) { if(['arrow','dozer','plane_red','plane_blue','sym_defense'].includes(activeTool)) { map.dragging.disable(); dragStart=e.latlng; } }
+        function onMouseDown(e) { if(['arrow','dozer','plane_red','plane_blue','sym_defense'].includes(window.activeTool)) { window.map.dragging.disable(); dragStart=e.latlng; } }
         function onMouseMove(e) { 
             if(dragStart) { 
-                if(tempLine) map.removeLayer(tempLine);
-                let c = (activeTool==='dozer'||activeTool==='route')?'black':'red';
-                if(activeTool.includes('plane')) c = activeTool.includes('blue')?'blue':'red';
+                if(tempLine) window.map.removeLayer(tempLine);
+                let c = (window.activeTool==='dozer'||window.activeTool==='route')?'black':'red';
+                if(window.activeTool.includes('plane')) c = window.activeTool.includes('blue')?'blue':'red';
                 
-                if(activeTool==='sym_defense') {
-                    let r = map.distance(dragStart,e.latlng);
-                    tempLine = L.circle(dragStart,{radius:r, color:'black', fill:false}).addTo(map);
+                if(window.activeTool==='sym_defense') {
+                    let r = window.map.distance(dragStart,e.latlng);
+                    tempLine = L.circle(dragStart,{radius:r, color:'black', fill:false}).addTo(window.map);
                 } else {
-                    tempLine = L.polyline([dragStart,e.latlng],{color:c, weight:4}).addTo(map);
-                    if(activeTool==='dozer') {
-                        let d = map.distance(dragStart,e.latlng);
+                    tempLine = L.polyline([dragStart,e.latlng],{color:c, weight:4}).addTo(window.map);
+                    if(window.activeTool==='dozer') {
+                        let d = window.map.distance(dragStart,e.latlng);
                         tempLine.bindTooltip(`${Math.round(d)}m`).openTooltip();
                     }
                 }
@@ -362,49 +387,46 @@
         }
         function onMouseUp(e) {
             if(dragStart) {
-                let sub = activeTool;
+                let sub = window.activeTool;
                 if(sub==='dozer') {
-                    let d = map.distance(dragStart,e.latlng);
+                    let d = window.map.distance(dragStart,e.latlng);
                     db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:'dozer', p1:dragStart, p2:e.latlng, start:getGameTime(), duration:(d/3000)*3600000});
                 } else if(sub.includes('plane')) {
                     db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:sub, p1:dragStart, p2:e.latlng, created:getGameTime()});
                 } else if(sub==='sym_defense') {
-                    db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'sym_defense', lat:dragStart.lat, lng:dragStart.lng, radius:map.distance(dragStart,e.latlng)});
+                    db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'sym_defense', lat:dragStart.lat, lng:dragStart.lng, radius:window.map.distance(dragStart,e.latlng)});
                 } else {
                     db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:'arrow', p1:dragStart, p2:e.latlng});
                 }
-                dragStart=null; map.dragging.enable(); if(tempLine) map.removeLayer(tempLine); activeTool=null; document.getElementById('map').style.cursor='grab';
+                dragStart=null; window.map.dragging.enable(); if(tempLine) window.map.removeLayer(tempLine); window.activeTool=null; document.getElementById('map').style.cursor='grab';
             }
         }
 
         // --- PHYSICS (ADMIN ONLY) ---
         function runPhysics(nodes, units, gt) {
-            if(myRole!=='admin') return; 
+            if(window.myRole!=='admin') return; 
             
-            // 1. FIRE (Spread + Merge)
+            // FIRE
             let updates = {};
             let activeList = [];
             if(nodes) {
                 Object.entries(nodes).forEach(([k,n]) => {
                     if(n.active) activeList.push({k, ...n});
                 });
-
-                // Check Proximity Merge
+                // Merge
                 activeList.forEach((n1, i) => {
                     for(let j=i+1; j<activeList.length; j++) {
                         let n2 = activeList[j];
-                        if(n2.active && map.distance([n1.lat,n1.lng], [n2.lat,n2.lng]) < 15) {
+                        if(n2.active && window.map.distance([n1.lat,n1.lng], [n2.lat,n2.lng]) < 15) {
                             updates[`${n2.k}/active`] = false; 
                         }
                     }
                 });
-
                 // Spread
                 activeList.forEach(n => {
                     if(updates[`${n.k}/active`]===false) return;
                     let el = (gt - n.start)/1000;
                     let dist = 50 + ((gameState.wind*30) * (el/3600));
-                    
                     if(!n.lastDrop || (dist - n.lastDrop > 30)) {
                         updates[`${n.k}/lastDrop`] = dist;
                         let rad = (n.windDir-90)*(Math.PI/180);
@@ -417,14 +439,13 @@
             }
             if(Object.keys(updates).length>0) db.ref(`games/${GAME_ID}/fire_nodes`).update(updates);
 
-            // 2. UNITS
+            // UNITS
             let uUpdates = {};
             let waterSources = [];
             if(units) Object.values(units).forEach(u => { if(u.type==='marker' && (u.sub==='water'||u.sub==='pool')) waterSources.push(u); });
 
             if(units) Object.entries(units).forEach(([k,u]) => {
                 if(u.type!=='unit') return;
-
                 // Move
                 if(u.status.includes('moving')) {
                     let dst = L.latLng(u.destLat, u.destLng);
@@ -440,29 +461,23 @@
                         uUpdates[`${k}/lng`] = u.lng + (lngDir/mag)*speed*0.1;
                     }
                 }
-
                 // Refill
                 if(u.status==='refilling' && (gt - u.refillStart > 600000)) {
                     uUpdates[`${k}/water`] = 100;
                     uUpdates[`${k}/status`] = u.sub==='heli' && u.lastWorkLat ? 'moving_to_work' : 'idle';
                     if(u.sub==='heli' && u.lastWorkLat) { uUpdates[`${k}/destLat`]=u.lastWorkLat; uUpdates[`${k}/destLng`]=u.lastWorkLng; }
                 }
-
                 // Work
                 if(u.status==='idle' && u.water > 0) {
                     let nearFire = false;
-                    if(nodes) Object.values(nodes).forEach(n => { if(n.active && map.distance([u.lat,u.lng],[n.lat,n.lng])<100) nearFire=true; });
-                    
-                    if(nearFire) {
-                        uUpdates[`${k}/water`] = u.water - 0.2;
-                    }
-
+                    if(nodes) Object.values(nodes).forEach(n => { if(n.active && window.map.distance([u.lat,u.lng],[n.lat,n.lng])<100) nearFire=true; });
+                    if(nearFire) uUpdates[`${k}/water`] = u.water - 0.2;
                     if(u.water <= 0) {
                         let nearest=null, min=999999;
                         let targetType = (u.sub==='heli')?'pool':'water';
                         waterSources.forEach(w => {
                             if(w.sub===targetType) {
-                                let d = map.distance([u.lat,u.lng],[w.lat,w.lng]);
+                                let d = window.map.distance([u.lat,u.lng],[w.lat,w.lng]);
                                 if(d<min) { min=d; nearest=w; }
                             }
                         });
@@ -481,12 +496,12 @@
         }
 
         // --- UI ---
-        window.alloc = (type, id) => { pendingAllocId = id; document.getElementById('alloc-modal').style.display='flex'; };
+        window.alloc = (type, id) => { window.pendingAllocId = id; document.getElementById('alloc-modal').style.display='flex'; };
         window.closeAlloc = () => document.getElementById('alloc-modal').style.display='none';
         window.confirmAlloc = (sec) => {
-            db.ref(`games/${GAME_ID}/ic_bank/${pendingAllocId}`).get().then(s => {
+            db.ref(`games/${GAME_ID}/ic_bank/${window.pendingAllocId}`).get().then(s => {
                 let type = s.val().type;
-                db.ref(`games/${GAME_ID}/ic_bank/${pendingAllocId}`).remove();
+                db.ref(`games/${GAME_ID}/ic_bank/${window.pendingAllocId}`).remove();
                 db.ref(`games/${GAME_ID}/sector_staging`).push({type:type, sector:sec, status:'available'});
                 logSys(`הוקצה ${type} לגזרה ${sec}`);
                 closeAlloc();
@@ -514,20 +529,18 @@
         function syncData() {
             db.ref(`games/${GAME_ID}/state`).on('value', s => {
                 let v=s.val(); if(v) { 
-                    if(v.lastWindChange !== gameState.lastWindChange && myRole==='admin') handleWindChange(v);
+                    if(v.lastWindChange !== gameState.lastWindChange && window.myRole==='admin') handleWindChange(v);
                     gameState={...gameState,...v}; 
                     document.getElementById('val-wind').innerText=v.wind;
                     document.getElementById('val-temp').innerText=v.temp;
                     document.getElementById('wind-arrow').style.transform=`translateX(-50%) rotate(${v.windDir}deg)`;
-                } else if(myRole==='admin') db.ref(`games/${GAME_ID}/state`).set(gameState);
+                } else if(window.myRole==='admin') db.ref(`games/${GAME_ID}/state`).set(gameState);
             });
 
             db.ref(`games/${GAME_ID}/units`).on('value', s => {
                 let d = s.val();
-                layers.units.clearLayers(); layers.polys.clearLayers(); layers.markers.clearLayers(); layers.drawings.clearLayers(); layers.burnt.clearLayers();
-                
+                window.layers.units.clearLayers(); window.layers.polys.clearLayers(); window.layers.markers.clearLayers(); window.layers.drawings.clearLayers(); window.layers.burnt.clearLayers();
                 let counts = {event:0, moving:0, stage:0, air:0};
-                
                 if(d) Object.entries(d).forEach(([k,u]) => {
                     if(u.type==='unit') {
                         if(u.sub==='heli') counts.air++;
@@ -537,41 +550,38 @@
                     }
                     renderObject(k,u);
                 });
-                
                 document.getElementById('cnt-event').innerText = counts.event;
                 document.getElementById('cnt-move').innerText = counts.moving;
                 document.getElementById('cnt-stage').innerText = counts.stage;
                 document.getElementById('cnt-air').innerText = counts.air;
-
-                if(myRole==='admin') runPhysics(window.fireNodesCache, d, getGameTime());
+                if(window.myRole==='admin') runPhysics(window.fireNodesCache, d, getGameTime());
             });
 
             db.ref(`games/${GAME_ID}/fire_nodes`).on('value', s => {
                 window.fireNodesCache = s.val();
-                layers.fire.clearLayers(); layers.pred.clearLayers();
+                window.layers.fire.clearLayers(); window.layers.pred.clearLayers();
                 drawFire(s.val(), getGameTime());
             });
 
-            if(myRole==='admin'||myRole==='ic') db.ref(`games/${GAME_ID}/requests`).on('value', s => renderRequests(s.val()));
-            if(myRole==='ic'||myRole==='admin') db.ref(`games/${GAME_ID}/ic_bank`).on('value', s => { icBank=s.val()||{}; renderIcBank(); });
-            if(myRole==='sector') db.ref(`games/${GAME_ID}/sector_staging`).on('value', s => { 
+            if(window.myRole==='admin'||window.myRole==='ic') db.ref(`games/${GAME_ID}/requests`).on('value', s => renderRequests(s.val()));
+            if(window.myRole==='ic'||window.myRole==='admin') db.ref(`games/${GAME_ID}/ic_bank`).on('value', s => { icBank=s.val()||{}; renderIcBank(); });
+            if(window.myRole==='sector') db.ref(`games/${GAME_ID}/sector_staging`).on('value', s => { 
                 sectorUnits={}; 
-                if(s.val()) Object.entries(s.val()).forEach(([k,v])=>{ if(v.sector===mySector && v.status==='available') { if(!sectorUnits[v.type]) sectorUnits[v.type]=[]; sectorUnits[v.type].push(k); } });
+                if(s.val()) Object.entries(s.val()).forEach(([k,v])=>{ if(v.sector===window.mySector && v.status==='available') { if(!sectorUnits[v.type]) sectorUnits[v.type]=[]; sectorUnits[v.type].push(k); } });
                 initSectorButtons();
             });
             db.ref(`games/${GAME_ID}/logs`).on('value', s => renderLogs(s.val()));
         }
 
-        // Render Functions
         function renderObject(k,u) {
             if(u.type==='unit') {
-                if(myRole==='sector' && u.sector!==mySector) return;
+                if(window.myRole==='sector' && u.sector!==window.mySector) return;
                 let html = u.sub==='heli' ? `<div class="unit-heli"><i class="fa-solid fa-helicopter"></i></div>` : 
                     `<div class="icon-unit ${u.sub=='saar'?'unit-saar':'unit-eshed'} ${u.water<=0?'unit-empty':''}">${u.callSign}<div class="water-bar"><div class="water-fill" style="width:${u.water}%"></div></div></div>`;
-                let m = L.marker([u.lat,u.lng], {icon:L.divIcon({html:html,className:''})}).addTo(layers.units);
-                m.on('click', ()=>{ if(activeTool==='move_select') { selectedToken=k; activeTool='move_dest'; document.getElementById('map').style.cursor='crosshair'; } });
+                let m = L.marker([u.lat,u.lng], {icon:L.divIcon({html:html,className:''})}).addTo(window.layers.units);
+                m.on('click', ()=>{ if(window.activeTool==='move_select') { window.selectedToken=k; window.activeTool='move_dest'; document.getElementById('map').style.cursor='crosshair'; } });
             }
-            if(u.type==='burnt_spot') L.circle([u.lat,u.lng], {radius:u.radius, color:'black', fillColor:'black', fillOpacity:0.5, stroke:false}).addTo(layers.burnt);
+            if(u.type==='burnt_spot') L.circle([u.lat,u.lng], {radius:u.radius, color:'black', fillColor:'black', fillOpacity:0.5, stroke:false}).addTo(window.layers.burnt);
             if(u.type==='marker') {
                 let h='';
                 if(u.sub==='cp') h='<i class="fa-solid fa-flag text-danger fs-2"></i>';
@@ -579,21 +589,21 @@
                 if(u.sub==='water') h='<i class="fa-solid fa-droplet text-primary fs-3"></i>';
                 if(u.sub==='pool') h='<span class="fa-stack"><i class="fa-solid fa-circle text-info fa-stack-2x"></i><i class="fa-solid fa-h text-white fa-stack-1x"></i></span>';
                 if(u.sub==='sym_risk') h='<div style="color:#27ae60; font-size:24px;">▼</div>';
-                if(u.sub==='sym_defense') { L.circle([u.lat,u.lng], {radius:u.radius, color:'black', fill:false, dashArray:'5,5'}).addTo(layers.markers); return; }
-                L.marker([u.lat,u.lng], {icon:L.divIcon({html:h,className:''})}).addTo(layers.markers);
+                if(u.sub==='sym_defense') { L.circle([u.lat,u.lng], {radius:u.radius, color:'black', fill:false, dashArray:'5,5'}).addTo(window.layers.markers); return; }
+                L.marker([u.lat,u.lng], {icon:L.divIcon({html:h,className:''})}).addTo(window.layers.markers);
             }
-            if(u.type==='sector') L.polygon(u.points, {color:'orange', fillOpacity:0, dashArray:'5,5', interactive:false}).addTo(layers.polys).bindTooltip(u.name,{permanent:true,direction:"center"});
+            if(u.type==='sector') L.polygon(u.points, {color:'orange', fillOpacity:0, dashArray:'5,5', interactive:false}).addTo(window.layers.polys).bindTooltip(u.name,{permanent:true,direction:"center"});
             if(u.type==='drawing') {
                 if(u.sub.includes('plane')) {
-                    if(getGameTime()-u.created > 1800000) { if(myRole==='admin') db.ref(`games/${GAME_ID}/units/${k}`).remove(); return; }
+                    if(getGameTime()-u.created > 1800000) { if(window.myRole==='admin') db.ref(`games/${GAME_ID}/units/${k}`).remove(); return; }
                     let c = u.sub.includes('red')?'red':'blue';
-                    L.polyline([u.p1,u.p2], {color:c, weight:8, dashArray:'1,15', lineCap:'round'}).addTo(layers.drawings);
+                    L.polyline([u.p1,u.p2], {color:c, weight:8, dashArray:'1,15', lineCap:'round'}).addTo(window.layers.drawings);
                 } else if(u.sub==='dozer') {
                     let done = getGameTime() > (u.start+u.duration);
-                    L.polyline([u.p1,u.p2], {color:done?'black':'gray', weight:6}).addTo(layers.drawings);
+                    L.polyline([u.p1,u.p2], {color:done?'black':'gray', weight:6}).addTo(window.layers.drawings);
                 } else {
-                    L.polyline([u.p1,u.p2], {color:'red', weight:4}).addTo(layers.drawings);
-                    L.marker(u.p2, {icon:L.divIcon({html:'<i class="fa-solid fa-caret-up text-danger fs-3"></i>',className:''})}).addTo(layers.drawings);
+                    L.polyline([u.p1,u.p2], {color:'red', weight:4}).addTo(window.layers.drawings);
+                    L.marker(u.p2, {icon:L.divIcon({html:'<i class="fa-solid fa-caret-up text-danger fs-3"></i>',className:''})}).addTo(window.layers.drawings);
                 }
             }
         }
@@ -608,11 +618,11 @@
                 let off = dist / 111111;
                 let center = [n.lat + off*Math.sin(windRad), n.lng + off*Math.cos(windRad)];
                 let col = ['gray','gray','yellow','orange','orangered','red','purple'][n.level] || 'red';
-                L.circle(center, {radius: dist*0.4, color:col, fillOpacity:0.4, weight:2}).addTo(layers.fire);
+                L.circle(center, {radius: dist*0.4, color:col, fillOpacity:0.4, weight:2}).addTo(window.layers.fire);
                 if(showPrediction) {
                     let pDist = dist + (n.windSpeed*30 * 2);
                     let pCenter = [n.lat + (pDist/111111)*Math.sin(windRad), n.lng + (pDist/111111)*Math.cos(windRad)];
-                    L.polyline([center, pCenter], {color:'yellow', dashArray:'5,5'}).addTo(layers.pred);
+                    L.polyline([center, pCenter], {color:'yellow', dashArray:'5,5'}).addTo(window.layers.pred);
                 }
             });
         }
@@ -640,14 +650,21 @@
         }
 
         // --- COMMON ---
-        window.reqRes = (t) => { db.ref(`games/${GAME_ID}/requests`).push({type:t, by:myName, role:getRoleName(), sector:mySector, time:Date.now(), status:'pending_ic'}); showToast("בקשה נשלחה"); };
+        window.reqRes = (t) => { 
+            let status = (window.myRole === 'ic') ? 'pending_admin' : 'pending_ic';
+            db.ref(`games/${GAME_ID}/requests`).push({
+                type:t, by:window.myName, role:getRoleNameDisplay(), sector:window.mySector, time:Date.now(), status: status
+            }); 
+            showToast("בקשה נשלחה"); 
+        };
         window.reqD9 = () => window.reqRes('D9');
+        
         function renderRequests(d) {
             let div = document.getElementById('req-container'); div.innerHTML="";
             if(d) Object.entries(d).forEach(([k,v]) => {
                 let show=false, btn='';
-                if(myRole==='ic' && v.status==='pending_ic') { show=true; btn=`<button class="btn btn-sm btn-success p-0 px-2" onclick="approve('${k}',1)">V</button>`; }
-                if(myRole==='admin' && v.status==='pending_admin') { show=true; btn=`<button class="btn btn-sm btn-danger" onclick="approve('${k}',2,'${v.type}')">V</button>`; }
+                if(window.myRole==='ic' && v.status==='pending_ic') { show=true; btn=`<button class="btn btn-sm btn-success p-0 px-2" onclick="approve('${k}',1)">V</button>`; }
+                if(window.myRole==='admin' && v.status==='pending_admin') { show=true; btn=`<button class="btn btn-sm btn-danger" onclick="approve('${k}',2,'${v.type}')">V</button>`; }
                 if(show) div.innerHTML += `<div style="background:white; border-bottom:1px solid #ccc; padding:5px; display:flex; justify-content:space-between; align-items:center;">
                     <small>${v.type} (${v.sector||v.by})</small> ${btn}</div>`;
             });
@@ -680,15 +697,15 @@
         }
         window.handleSectorBtn = (t) => {
             if(sectorUnits[t] && sectorUnits[t].length>0) {
-                selectedToken = sectorUnits[t][0]; activeTool = 'place_unit'; document.getElementById('map').style.cursor='crosshair'; showToast("לחץ במפה להצבה");
+                window.selectedToken = sectorUnits[t][0]; window.activeTool = 'place_unit'; document.getElementById('map').style.cursor='crosshair'; showToast("לחץ במפה להצבה");
             } else window.reqRes(t);
         };
         window.placeUnit = (token, loc) => {
             db.ref(`games/${GAME_ID}/sector_staging/${token}`).remove();
             let type = Object.keys(sectorUnits).find(k => sectorUnits[k].includes(token));
-            if(type==='D9') { activeTool='dozer'; showToast("סמן קו עבודה ל-D9"); } 
+            if(type==='D9') { window.activeTool='dozer'; showToast("סמן קו עבודה ל-D9"); } 
             else {
-                db.ref(`games/${GAME_ID}/units`).push({ type:'unit', sub:type, lat:loc.lat, lng:loc.lng, sector:mySector, water:100, status:'idle', callSign:Math.floor(Math.random()*100)+400 });
+                db.ref(`games/${GAME_ID}/units`).push({ type:'unit', sub:type, lat:loc.lat, lng:loc.lng, sector:window.mySector, water:100, status:'idle', callSign:Math.floor(Math.random()*100)+400 });
                 logSys(`הוצב ${type}`); resetTool();
             }
         };
@@ -696,17 +713,24 @@
         // --- UTILS ---
         window.editMeteo = () => { let w=prompt("רוח"), d=prompt("כיוון"), t=prompt("טמפ"); if(w) db.ref(`games/${GAME_ID}/state`).update({wind:w, windDir:d, temp:t, lastWindChange:Date.now()}); };
         window.togglePred = () => { showPrediction=!showPrediction; syncData(); };
-        window.setTool = (t,e) => { if(e) e.stopPropagation(); activeTool=t; if(t!=='move_select') selectedToken=null; polyPoints=[]; document.getElementById('map').style.cursor='crosshair'; };
-        window.resetTool = () => { activeTool=null; document.getElementById('map').style.cursor='grab'; };
-        window.moveUnit = () => { activeTool='move_select'; document.getElementById('map').style.cursor='pointer'; showToast("בחר רכב"); };
-        window.logSys = (t) => db.ref(`games/${GAME_ID}/logs`).push({text:t, user:myName, role:getRoleName(), time:Date.now()});
+        window.setTool = (t,e) => { 
+            if(e) e.stopPropagation(); 
+            window.activeTool=t; 
+            if(t!=='move_select') window.selectedToken=null; 
+            polyPoints=[]; 
+            document.getElementById('map').style.cursor='crosshair'; 
+            showToast("נבחר כלי: " + t);
+        };
+        window.resetTool = () => { window.activeTool=null; document.getElementById('map').style.cursor='grab'; };
+        window.moveUnit = () => { window.activeTool='move_select'; document.getElementById('map').style.cursor='pointer'; showToast("בחר רכב"); };
+        window.logSys = (t) => db.ref(`games/${GAME_ID}/logs`).push({text:t, user:window.myName, role:getRoleNameDisplay(), time:Date.now()});
         window.sendChat = () => { let i=document.getElementById('chat-in'); if(i.value) logSys(i.value); i.value=""; };
         window.resetGame = () => { if(confirm("איפוס?")) db.ref(`games/${GAME_ID}`).remove().then(()=>location.reload()); };
         window.showToast = (msg) => { let d=document.createElement('div'); d.className='toast-msg'; d.innerText=msg; document.getElementById('toast-container').appendChild(d); setTimeout(()=>d.remove(),3000); };
         window.genReport = () => {
             document.getElementById('rep-date').innerText = new Date().toLocaleString();
             if(window.leafletImage) {
-                leafletImage(map, function(err, canvas) {
+                leafletImage(window.map, function(err, canvas) {
                     let img = document.createElement('img'); img.src = canvas.toDataURL();
                     document.getElementById('map-snapshot').innerHTML = ''; document.getElementById('map-snapshot').appendChild(img);
                     window.print();
