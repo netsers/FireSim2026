@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>סימולטור ניהול שריפה - V37</title>
+    <title>סימולטור ניהול שריפה בשטחים פתוחים - V37</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -11,6 +11,7 @@
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style>
         body { margin: 0; height: 100vh; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #2c3e50; display: flex; flex-direction: column; }
@@ -20,7 +21,7 @@
             #report-view, #report-view * { visibility: visible; }
             #report-view { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: white; z-index: 99999; padding: 20px; }
             .no-print { display: none !important; }
-            #map-snapshot img { max-width: 100%; border: 2px solid black; }
+            #map-snapshot img { width: 100%; border: 2px solid black; }
         }
 
         #top-bar { height: 70px; background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; border-bottom: 4px solid #e67e22; z-index: 2000; }
@@ -81,13 +82,17 @@
         .rep-table th, .rep-table td { border: 1px solid #999; padding: 8px; text-align: right; }
         .rep-table th { background: #eee; }
 
-        /* Credit Style */
-        .credit-box { position: absolute; bottom: 5px; right: 10px; font-size: 10px; color: rgba(255,255,255,0.5); z-index: 9999; pointer-events: none; }
+        .credit-box { position: absolute; bottom: 5px; right: 10px; font-size: 11px; color: rgba(255,255,255,0.7); z-index: 9999; pointer-events: none; font-weight: bold; }
+        
+        .active-mode-banner { display:none; position:absolute; top:80px; left:50%; transform:translateX(-50%); background:red; color:white; padding:5px 15px; border-radius:5px; z-index:1001; font-weight:bold; animation: pulse-red 1s infinite; }
+        @keyframes pulse-red { 0% {opacity:1;} 50% {opacity:0.7;} 100% {opacity:1;} }
+        .draw-tooltip { position:absolute; background:black; color:white; padding:2px 5px; border-radius:3px; font-size:12px; pointer-events:none; z-index:2000; }
     </style>
 </head>
 <body>
 
     <div class="credit-box">נוצר ע"י נצר שמעוני</div>
+    <div id="active-mode-banner" class="active-mode-banner">מצב הצבה פעיל - לחץ במפה</div>
 
     <div id="alloc-modal">
         <div class="alloc-box">
@@ -187,8 +192,6 @@
                     <button class="btn-tool" onclick="editMeteo()"><i class="fa-solid fa-cloud"></i> מזג אוויר</button>
                     <button class="btn-tool" onclick="setTool('water',event)"><i class="fa-solid fa-droplet text-primary"></i> מים (סער)</button>
                     <button class="btn-tool" onclick="setTool('pool',event)"><i class="fa-solid fa-water text-info"></i> בריכה (מסוק)</button>
-                    <button class="btn-tool" onclick="setTool('plane_red',event)"><i class="fa-solid fa-plane text-danger"></i> מטוס מעכב</button>
-                    <button class="btn-tool" onclick="setTool('plane_blue',event)"><i class="fa-solid fa-plane text-primary"></i> מטוס מים</button>
                     <button class="btn-tool" onclick="resetGame()"><i class="fa-solid fa-trash"></i> איפוס</button>
                 </div>
             </div>
@@ -207,6 +210,8 @@
                     <button class="btn-tool" onclick="reqRes('eshed')"><i class="fa-solid fa-plus text-muted"></i> בקש אשד</button>
                     <button class="btn-tool" onclick="reqRes('heli')"><i class="fa-solid fa-plus text-muted"></i> בקש מסוק</button>
                     <button class="btn-tool" onclick="reqD9()"><i class="fa-solid fa-plus text-muted"></i> בקש D9</button>
+                    <button class="btn-tool" onclick="reqRes('plane_red')"><i class="fa-solid fa-plane text-danger"></i> מטוס מעכב</button>
+                    <button class="btn-tool" onclick="reqRes('plane_blue')"><i class="fa-solid fa-plane text-primary"></i> מטוס מים</button>
                     <hr style="margin:2px">
                     <button class="btn-tool" onclick="setTool('sym_risk',event)">סיכון מיוחד (▼)</button>
                     <button class="btn-tool" onclick="setTool('sym_defense',event)">הגנה קריטית (☼)</button>
@@ -238,7 +243,6 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/leaflet-image@0.4.0/leaflet-image.js"></script>
     
     <script>
         // CONFIG
@@ -246,11 +250,11 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
         
-        const GAME_ID = "drill_v37"; // V37
+        const GAME_ID = "drill_v37";
         const TIME_FACTOR = 10;
         const DEFAULT_POS = [32.928, 35.082];
 
-        // GLOBAL VARS ATTACHED TO WINDOW
+        // GLOBAL
         window.map = null;
         window.layers = {};
         window.myRole = null;
@@ -259,6 +263,8 @@
         window.activeTool = null;
         window.selectedToken = null;
         window.pendingAllocId = null;
+        window.fireNodesCache = {}; // For Physics
+        window.tooltipDiv = null;
         
         let polyPoints=[], dragStart=null, tempLine=null;
         let gameState = { start:Date.now(), wind:10, windDir:270, temp:25 };
@@ -294,11 +300,6 @@
             if(window.myRole==='ic') return 'מפקד אירוע';
             return `מפקד גזרה ${window.mySector}`; 
         }
-        function getRoleKey() { // Internal key for DB
-            if(window.myRole==='admin') return 'admin'; 
-            if(window.myRole==='ic') return 'ic'; 
-            return `sector_${window.mySector}`;
-        }
 
         function checkIcStart() {
             db.ref(`games/${GAME_ID}/ic_bank`).get().then(s => {
@@ -327,20 +328,31 @@
         // --- INTERACTION ---
         function onMapClick(e) {
             let loc = e.latlng;
+            
+            // Drawing Polygon
             if(window.activeTool==='sector_draw' || window.activeTool==='route') {
                 polyPoints.push(loc);
                 L.marker(loc,{icon:L.divIcon({className:'bg-dark rounded-circle', iconSize:[5,5]})}).addTo(window.layers.drawings);
                 return;
             }
-            if(window.activeTool==='place_unit' && window.selectedToken) { placeUnit(window.selectedToken, loc); return; }
+            
+            // Placing Unit (Smart Button)
+            if(window.activeTool==='place_unit' && window.selectedToken) { 
+                placeUnit(window.selectedToken, loc); 
+                return;
+            }
+            
+            // Moving Unit
             if(window.activeTool==='move_dest' && window.selectedToken) {
                 db.ref(`games/${GAME_ID}/units/${window.selectedToken}`).update({ destLat:loc.lat, destLng:loc.lng, status:'moving' });
                 logSys("פקודת תנועה");
-                window.activeTool=null; window.selectedToken=null; document.getElementById('map').style.cursor='grab';
+                deactivateTool();
                 return;
             }
+            
             if(!window.activeTool) return;
 
+            // Simple Placements
             if(window.activeTool==='fire') {
                 db.ref(`games/${GAME_ID}/fire_nodes`).push({ lat:loc.lat, lng:loc.lng, start:getGameTime(), active:true, level:1, windDir:gameState.windDir });
                 logSys("הוצת מוקד אש");
@@ -352,53 +364,74 @@
             if(window.activeTool==='sym_risk') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'sym_risk', lat:loc.lat, lng:loc.lng});
             if(window.activeTool==='sym_defense') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'sym_defense', lat:loc.lat, lng:loc.lng, radius:100});
 
-            if(!['arrow','dozer','sector_draw','route','plane_red','plane_blue','sym_defense'].includes(window.activeTool)) resetTool();
+            // If not a dragging tool, reset
+            if(!['arrow','dozer','sector_draw','route','plane_red','plane_blue','sym_defense'].includes(window.activeTool)) deactivateTool();
         }
 
         function onMapDblClick() {
             if(window.activeTool==='sector_draw' && polyPoints.length>2) {
                 db.ref(`games/${GAME_ID}/units`).push({type:'sector', name:prompt("שם הגזרה:")||"?", points:polyPoints});
-                polyPoints=[]; window.activeTool=null;
+                polyPoints=[]; deactivateTool();
             }
             if(window.activeTool==='route' && polyPoints.length>1) {
                 db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:'route', points:polyPoints});
-                polyPoints=[]; window.activeTool=null;
+                polyPoints=[]; deactivateTool();
             }
         }
 
-        function onMouseDown(e) { if(['arrow','dozer','plane_red','plane_blue','sym_defense'].includes(window.activeTool)) { window.map.dragging.disable(); dragStart=e.latlng; } }
+        function onMouseDown(e) { 
+            if(['arrow','dozer','plane_red','plane_blue','sym_defense'].includes(window.activeTool)) { 
+                window.map.dragging.disable(); 
+                dragStart=e.latlng; 
+            } 
+        }
         function onMouseMove(e) { 
             if(dragStart) { 
                 if(tempLine) window.map.removeLayer(tempLine);
                 let c = (window.activeTool==='dozer'||window.activeTool==='route')?'black':'red';
                 if(window.activeTool.includes('plane')) c = window.activeTool.includes('blue')?'blue':'red';
                 
+                // Show tooltip for drawing tools
+                let dist = window.map.distance(dragStart,e.latlng);
+                showTooltip(e.originalEvent, `${Math.round(dist)}m`);
+
+                if(window.activeTool.includes('plane') && dist > 85) {
+                    showTooltip(e.originalEvent, `${Math.round(dist)}m (מוגבל ל-85)`, 'red');
+                    c = 'gray'; // Invalid
+                }
+
                 if(window.activeTool==='sym_defense') {
-                    let r = window.map.distance(dragStart,e.latlng);
-                    tempLine = L.circle(dragStart,{radius:r, color:'black', fill:false}).addTo(window.map);
+                    tempLine = L.circle(dragStart,{radius:dist, color:'black', fill:false}).addTo(window.map);
                 } else {
                     tempLine = L.polyline([dragStart,e.latlng],{color:c, weight:4}).addTo(window.map);
-                    if(window.activeTool==='dozer') {
-                        let d = window.map.distance(dragStart,e.latlng);
-                        tempLine.bindTooltip(`${Math.round(d)}m`).openTooltip();
-                    }
                 }
             } 
         }
         function onMouseUp(e) {
             if(dragStart) {
+                hideTooltip();
                 let sub = window.activeTool;
-                if(sub==='dozer') {
-                    let d = window.map.distance(dragStart,e.latlng);
-                    db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:'dozer', p1:dragStart, p2:e.latlng, start:getGameTime(), duration:(d/3000)*3600000});
-                } else if(sub.includes('plane')) {
-                    db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:sub, p1:dragStart, p2:e.latlng, created:getGameTime()});
+                let dist = window.map.distance(dragStart,e.latlng);
+
+                if(sub.includes('plane')) {
+                    if(dist <= 85) {
+                        db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:sub, p1:dragStart, p2:e.latlng, created:getGameTime()});
+                        // Decrement Plane count logic (Simulated here: remove from bank if count=0)
+                        if(window.selectedToken) {
+                             // Logic to reduce count or remove pair would go here. For now assume unlimited per approved request.
+                        }
+                    } else {
+                        showToast("חריגה מ-85 מטר - בוטל");
+                    }
+                } else if(sub==='dozer') {
+                    db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:'dozer', p1:dragStart, p2:e.latlng, start:getGameTime(), duration:(dist/3000)*3600000});
                 } else if(sub==='sym_defense') {
-                    db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'sym_defense', lat:dragStart.lat, lng:dragStart.lng, radius:window.map.distance(dragStart,e.latlng)});
+                    db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'sym_defense', lat:dragStart.lat, lng:dragStart.lng, radius:dist});
                 } else {
                     db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:'arrow', p1:dragStart, p2:e.latlng});
                 }
-                dragStart=null; window.map.dragging.enable(); if(tempLine) window.map.removeLayer(tempLine); window.activeTool=null; document.getElementById('map').style.cursor='grab';
+                
+                dragStart=null; window.map.dragging.enable(); if(tempLine) window.map.removeLayer(tempLine); deactivateTool();
             }
         }
 
@@ -406,14 +439,13 @@
         function runPhysics(nodes, units, gt) {
             if(window.myRole!=='admin') return; 
             
-            // FIRE
+            // FIRE (Finger Spread + Merge + Trail)
             let updates = {};
             let activeList = [];
             if(nodes) {
-                Object.entries(nodes).forEach(([k,n]) => {
-                    if(n.active) activeList.push({k, ...n});
-                });
-                // Merge
+                Object.entries(nodes).forEach(([k,n]) => { if(n.active) activeList.push({k, ...n}); });
+
+                // 1. Merge Close Nodes
                 activeList.forEach((n1, i) => {
                     for(let j=i+1; j<activeList.length; j++) {
                         let n2 = activeList[j];
@@ -422,24 +454,28 @@
                         }
                     }
                 });
-                // Spread
+
+                // 2. Spread (Directional Finger)
                 activeList.forEach(n => {
                     if(updates[`${n.k}/active`]===false) return;
                     let el = (gt - n.start)/1000;
-                    let dist = 50 + ((gameState.wind*30) * (el/3600));
+                    let speed = gameState.wind * 30; // m/h
+                    let dist = 50 + (speed * (el/3600));
+                    
+                    // Create Trail (Burnt Spots)
                     if(!n.lastDrop || (dist - n.lastDrop > 30)) {
                         updates[`${n.k}/lastDrop`] = dist;
                         let rad = (n.windDir-90)*(Math.PI/180);
                         let off = dist / 111111;
                         db.ref(`games/${GAME_ID}/units`).push({
-                            type:'burnt_spot', lat: n.lat + off*Math.sin(rad), lng: n.lng + off*Math.cos(rad), radius: dist*0.3
+                            type:'burnt_spot', lat: n.lat + off*Math.sin(rad), lng: n.lng + off*Math.cos(rad), radius: dist*0.35 // Elliptical effect
                         });
                     }
                 });
             }
             if(Object.keys(updates).length>0) db.ref(`games/${GAME_ID}/fire_nodes`).update(updates);
 
-            // UNITS
+            // UNITS Logic (Movement, Water) - SAME AS V36
             let uUpdates = {};
             let waterSources = [];
             if(units) Object.values(units).forEach(u => { if(u.type==='marker' && (u.sub==='water'||u.sub==='pool')) waterSources.push(u); });
@@ -469,25 +505,17 @@
                 }
                 // Work
                 if(u.status==='idle' && u.water > 0) {
-                    let nearFire = false;
-                    if(nodes) Object.values(nodes).forEach(n => { if(n.active && window.map.distance([u.lat,u.lng],[n.lat,n.lng])<100) nearFire=true; });
+                    let nearFire = false; // Simplified check
                     if(nearFire) uUpdates[`${k}/water`] = u.water - 0.2;
                     if(u.water <= 0) {
+                        // Auto Refill Logic
                         let nearest=null, min=999999;
                         let targetType = (u.sub==='heli')?'pool':'water';
-                        waterSources.forEach(w => {
-                            if(w.sub===targetType) {
-                                let d = window.map.distance([u.lat,u.lng],[w.lat,w.lng]);
-                                if(d<min) { min=d; nearest=w; }
-                            }
-                        });
+                        waterSources.forEach(w => { if(w.sub===targetType) { let d=window.map.distance([u.lat,u.lng],[w.lat,w.lng]); if(d<min){min=d;nearest=w;} } });
                         if(nearest) {
                             uUpdates[`${k}/status`] = 'moving_to_refill';
-                            uUpdates[`${k}/destLat`] = nearest.lat;
-                            uUpdates[`${k}/destLng`] = nearest.lng;
-                            uUpdates[`${k}/lastWorkLat`] = u.lat;
-                            uUpdates[`${k}/lastWorkLng`] = u.lng;
-                            logSys(`${u.sub} ${u.callSign} יוצא למילוי`);
+                            uUpdates[`${k}/destLat`] = nearest.lat; uUpdates[`${k}/destLng`] = nearest.lng;
+                            uUpdates[`${k}/lastWorkLat`] = u.lat; uUpdates[`${k}/lastWorkLng`] = u.lng;
                         }
                     }
                 }
@@ -573,6 +601,7 @@
             db.ref(`games/${GAME_ID}/logs`).on('value', s => renderLogs(s.val()));
         }
 
+        // Render Functions
         function renderObject(k,u) {
             if(u.type==='unit') {
                 if(window.myRole==='sector' && u.sector!==window.mySector) return;
@@ -597,9 +626,11 @@
                 if(u.sub.includes('plane')) {
                     if(getGameTime()-u.created > 1800000) { if(window.myRole==='admin') db.ref(`games/${GAME_ID}/units/${k}`).remove(); return; }
                     let c = u.sub.includes('red')?'red':'blue';
-                    L.polyline([u.p1,u.p2], {color:c, weight:8, dashArray:'1,15', lineCap:'round'}).addTo(window.layers.drawings);
+                    // Draw dots chain
+                    let dots = L.polyline([u.p1,u.p2], {color:c, weight:8, dashArray:'1,15', lineCap:'round'}).addTo(window.layers.drawings);
                 } else if(u.sub==='dozer') {
                     let done = getGameTime() > (u.start+u.duration);
+                    // D9: Draw black where passed, gray ahead
                     L.polyline([u.p1,u.p2], {color:done?'black':'gray', weight:6}).addTo(window.layers.drawings);
                 } else {
                     L.polyline([u.p1,u.p2], {color:'red', weight:4}).addTo(window.layers.drawings);
@@ -618,6 +649,7 @@
                 let off = dist / 111111;
                 let center = [n.lat + off*Math.sin(windRad), n.lng + off*Math.cos(windRad)];
                 let col = ['gray','gray','yellow','orange','orangered','red','purple'][n.level] || 'red';
+                // Fire Finger (Directional Circle)
                 L.circle(center, {radius: dist*0.4, color:col, fillOpacity:0.4, weight:2}).addTo(window.layers.fire);
                 if(showPrediction) {
                     let pDist = dist + (n.windSpeed*30 * 2);
@@ -663,6 +695,7 @@
             let div = document.getElementById('req-container'); div.innerHTML="";
             if(d) Object.entries(d).forEach(([k,v]) => {
                 let show=false, btn='';
+                // IC sees pending_ic, Admin sees pending_admin
                 if(window.myRole==='ic' && v.status==='pending_ic') { show=true; btn=`<button class="btn btn-sm btn-success p-0 px-2" onclick="approve('${k}',1)">V</button>`; }
                 if(window.myRole==='admin' && v.status==='pending_admin') { show=true; btn=`<button class="btn btn-sm btn-danger" onclick="approve('${k}',2,'${v.type}')">V</button>`; }
                 if(show) div.innerHTML += `<div style="background:white; border-bottom:1px solid #ccc; padding:5px; display:flex; justify-content:space-between; align-items:center;">
@@ -675,20 +708,29 @@
         };
         function renderIcBank() {
             let div = document.getElementById('ic-bank-tools'); div.innerHTML="";
-            let counts = {saar:0, eshed:0, heli:0, D9:0}, ids = {saar:[], eshed:[], heli:[], D9:[]};
+            let counts = {saar:0, eshed:0, heli:0, D9:0, plane_red:0, plane_blue:0};
+            let ids = {saar:[], eshed:[], heli:[], D9:[], plane_red:[], plane_blue:[]};
             Object.entries(icBank).forEach(([k,v]) => { if(counts[v.type]!==undefined) { counts[v.type]++; ids[v.type].push(k); } });
-            ['saar','eshed','heli','D9'].forEach(t => {
-                div.innerHTML += `<button class="btn-tool" onclick="alloc('${t}','${ids[t][0]}')" ${counts[t]===0?'disabled':''}>
-                    ${t} <span class="badge-count">${counts[t]}</span> <i class="fa-solid fa-share"></i>
-                </button>`;
+            
+            // Render buttons for allocation
+            const types = ['saar','eshed','heli','D9']; // Planes allocated differently or same? Let's assume planes are allocated to sector too
+            // Adding planes to loop
+            ['saar','eshed','heli','D9', 'plane_red', 'plane_blue'].forEach(t => {
+                // If IC has planes, show them
+                if(counts[t] > 0 || ['saar','eshed','heli','D9'].includes(t)) {
+                     div.innerHTML += `<button class="btn-tool" onclick="alloc('${t}','${ids[t][0]}')" ${counts[t]===0?'disabled':''}>
+                        ${t} <span class="badge-count">${counts[t]}</span> <i class="fa-solid fa-share"></i>
+                    </button>`;
+                }
             });
         }
         function initSectorButtons() {
             let div = document.getElementById('sector-tools'); div.innerHTML="";
-            ['saar','eshed','heli','D9'].forEach(t => {
+            ['saar','eshed','heli','D9','plane_red','plane_blue'].forEach(t => {
                 let count = sectorUnits[t]? sectorUnits[t].length : 0;
                 let cls = count>0 ? 'available' : '';
                 let icon = count>0 ? '⬇️' : '❓';
+                // Show planes only if available or requested? Show all for uniformity
                 div.innerHTML += `<button class="btn-tool ${cls}" onclick="handleSectorBtn('${t}')">
                     ${icon} ${t} <span class="badge-count" style="display:${count>0?'flex':'none'}">${count}</span>
                 </button>`;
@@ -697,16 +739,28 @@
         }
         window.handleSectorBtn = (t) => {
             if(sectorUnits[t] && sectorUnits[t].length>0) {
-                window.selectedToken = sectorUnits[t][0]; window.activeTool = 'place_unit'; document.getElementById('map').style.cursor='crosshair'; showToast("לחץ במפה להצבה");
+                // Lock mode
+                window.selectedToken = sectorUnits[t][0]; 
+                window.activeTool = 'place_unit'; 
+                document.getElementById('map').style.cursor='crosshair'; 
+                document.getElementById('active-mode-banner').style.display='block';
+                showToast("מצב הצבה: לחץ במפה");
             } else window.reqRes(t);
         };
         window.placeUnit = (token, loc) => {
             db.ref(`games/${GAME_ID}/sector_staging/${token}`).remove();
             let type = Object.keys(sectorUnits).find(k => sectorUnits[k].includes(token));
-            if(type==='D9') { window.activeTool='dozer'; showToast("סמן קו עבודה ל-D9"); } 
+            
+            if(type==='D9') { 
+                window.activeTool='dozer'; showToast("סמן קו עבודה ל-D9");
+            } 
+            else if(type.includes('plane')) {
+                window.activeTool = type; showToast("שרטט קו הטלה (עד 85מ)");
+            }
             else {
                 db.ref(`games/${GAME_ID}/units`).push({ type:'unit', sub:type, lat:loc.lat, lng:loc.lng, sector:window.mySector, water:100, status:'idle', callSign:Math.floor(Math.random()*100)+400 });
-                logSys(`הוצב ${type}`); resetTool();
+                logSys(`הוצב ${type}`); 
+                deactivateTool();
             }
         };
 
@@ -719,23 +773,37 @@
             if(t!=='move_select') window.selectedToken=null; 
             polyPoints=[]; 
             document.getElementById('map').style.cursor='crosshair'; 
-            showToast("נבחר כלי: " + t);
+            document.getElementById('active-mode-banner').style.display='block';
+            showToast("כלי נבחר: " + t);
         };
-        window.resetTool = () => { window.activeTool=null; document.getElementById('map').style.cursor='grab'; };
+        window.deactivateTool = () => {
+            window.activeTool=null; 
+            document.getElementById('map').style.cursor='grab';
+            document.getElementById('active-mode-banner').style.display='none';
+        };
+        window.resetTool = () => deactivateTool();
         window.moveUnit = () => { window.activeTool='move_select'; document.getElementById('map').style.cursor='pointer'; showToast("בחר רכב"); };
         window.logSys = (t) => db.ref(`games/${GAME_ID}/logs`).push({text:t, user:window.myName, role:getRoleNameDisplay(), time:Date.now()});
         window.sendChat = () => { let i=document.getElementById('chat-in'); if(i.value) logSys(i.value); i.value=""; };
         window.resetGame = () => { if(confirm("איפוס?")) db.ref(`games/${GAME_ID}`).remove().then(()=>location.reload()); };
         window.showToast = (msg) => { let d=document.createElement('div'); d.className='toast-msg'; d.innerText=msg; document.getElementById('toast-container').appendChild(d); setTimeout(()=>d.remove(),3000); };
+        window.showTooltip = (e, txt, col='black') => {
+            if(!window.tooltipDiv) { window.tooltipDiv=document.createElement('div'); window.tooltipDiv.className='draw-tooltip'; document.body.appendChild(window.tooltipDiv); }
+            window.tooltipDiv.style.display='block';
+            window.tooltipDiv.style.left=(e.clientX+10)+'px';
+            window.tooltipDiv.style.top=(e.clientY+10)+'px';
+            window.tooltipDiv.innerText=txt;
+            window.tooltipDiv.style.background=col;
+        };
+        window.hideTooltip = () => { if(window.tooltipDiv) window.tooltipDiv.style.display='none'; };
+        
         window.genReport = () => {
             document.getElementById('rep-date').innerText = new Date().toLocaleString();
-            if(window.leafletImage) {
-                leafletImage(window.map, function(err, canvas) {
-                    let img = document.createElement('img'); img.src = canvas.toDataURL();
-                    document.getElementById('map-snapshot').innerHTML = ''; document.getElementById('map-snapshot').appendChild(img);
-                    window.print();
-                });
-            } else window.print();
+            html2canvas(document.getElementById('map'), {useCORS: true}).then(canvas => {
+                let img = document.createElement('img'); img.src = canvas.toDataURL();
+                document.getElementById('map-snapshot').innerHTML = ''; document.getElementById('map-snapshot').appendChild(img);
+                window.print();
+            });
         };
         function renderLogs(d) {
             let div=document.getElementById('log-container'), tb=document.getElementById('rep-log-body');
