@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>סימולטור ניהול שריפה ביער ושטחים פתוחים - V37</title>
+    <title>סימולטור ניהול שריפה בשטחים פתוחים - V38</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -14,86 +14,623 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style>
-        body { margin: 0; height: 100vh; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #2c3e50; display: flex; flex-direction: column; }
-        
-        @media print {
-            body * { visibility: hidden; }
-            #report-view, #report-view * { visibility: visible; }
-            #report-view { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: white; z-index: 99999; padding: 20px; }
-            .no-print { display: none !important; }
-            #map-snapshot img { width: 100%; border: 2px solid black; }
+        /* ============================================
+           GLOBAL STYLES
+        ============================================ */
+        * { box-sizing: border-box; }
+        body { 
+            margin: 0; 
+            height: 100vh; 
+            overflow: hidden; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #2c3e50; 
+            display: flex; 
+            flex-direction: column; 
         }
-
-        #top-bar { height: 70px; background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; border-bottom: 4px solid #e67e22; z-index: 2000; }
-        .logo-box { width: 50px; height: 50px; background: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; overflow: hidden; border: 2px solid #ccc; }
+        
+        /* ============================================
+           TOP BAR
+        ============================================ */
+        #top-bar { 
+            height: 70px; 
+            background: #1a1a1a; 
+            color: white; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            padding: 0 20px; 
+            border-bottom: 4px solid #e67e22; 
+            z-index: 2000; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .logo-box { 
+            width: 50px; 
+            height: 50px; 
+            background: white; 
+            border-radius: 50%; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            border: 2px solid #bdc3c7; 
+        }
         .logo-box img { width: 100%; height: 100%; object-fit: contain; }
 
-        .force-panel { display: flex; gap: 10px; background: #34495e; padding: 5px 15px; border-radius: 8px; border: 1px solid #566573; text-align: center; }
-        .fp-item { display: flex; flex-direction: column; min-width: 40px; border-left: 1px solid #566573; padding-left: 10px; }
-        .fp-item:last-child { border: none; }
-        .fp-val { font-size: 1.1rem; font-weight: bold; color: #f1c40f; }
-        .fp-lbl { font-size: 0.7rem; color: #bdc3c7; }
+        .force-panel { 
+            display: flex; 
+            gap: 15px; 
+            background: #34495e; 
+            padding: 8px 20px; 
+            border-radius: 8px; 
+            border: 1px solid #566573; 
+        }
+        .fp-item { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;
+            min-width: 50px; 
+            border-left: 1px solid #566573; 
+            padding: 0 10px; 
+        }
+        .fp-item:first-child { border-left: none; }
+        .fp-val { font-size: 1.3rem; font-weight: bold; color: #f39c12; }
+        .fp-lbl { font-size: 0.75rem; color: #bdc3c7; margin-top: 2px; }
 
-        .clock-display { font-family: monospace; font-size: 1.6rem; color: #f1c40f; font-weight: bold; text-shadow: 1px 1px 2px black; }
+        .clock-display { 
+            font-family: 'Courier New', monospace; 
+            font-size: 1.8rem; 
+            color: #f39c12; 
+            font-weight: bold; 
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5); 
+            letter-spacing: 2px;
+        }
 
-        .wind-widget { display: flex; align-items: center; gap: 10px; }
-        .wind-rose { position: relative; width: 40px; height: 40px; background: radial-gradient(circle, #34495e, #2c3e50); border-radius: 50%; border: 2px solid #ecf0f1; }
-        .wind-arrow { position: absolute; width: 4px; height: 18px; background: #e74c3c; top: 2px; left: 50%; transform-origin: 50% 200%; transition: transform 1s; clip-path: polygon(50% 0, 0 100%, 100% 100%); }
+        .wind-widget { display: flex; align-items: center; gap: 12px; }
+        .wind-rose { 
+            position: relative; 
+            width: 45px; 
+            height: 45px; 
+            background: radial-gradient(circle, #34495e, #2c3e50); 
+            border-radius: 50%; 
+            border: 2px solid #ecf0f1; 
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .wind-arrow { 
+            position: absolute; 
+            width: 0; 
+            height: 0; 
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-bottom: 20px solid #e74c3c;
+            top: 5px; 
+            left: 50%; 
+            transform-origin: 50% 200%; 
+            transition: transform 1s ease-in-out;
+            transform: translateX(-50%);
+        }
 
-        #main-container { display: flex; flex: 1; height: calc(100% - 70px); }
-        #map { flex: 1; background: #333; position: relative; }
-        #sidebar { width: 360px; background: #f8f9fa; border-right: 2px solid #ccc; display: flex; flex-direction: column; z-index: 1500; }
+        /* ============================================
+           MAIN CONTAINER
+        ============================================ */
+        #main-container { 
+            display: flex; 
+            flex: 1; 
+            height: calc(100% - 70px); 
+        }
 
-        .draggable-panel { position: absolute; background: rgba(255, 255, 255, 0.98); border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 1000; min-width: 170px; display: flex; flex-direction: column; overflow: hidden; resize: both; border: 1px solid #95a5a6; }
-        .panel-handle { background: #2c3e50; height: 28px; cursor: move; display: flex; justify-content: center; align-items: center; color: white; font-size: 0.85rem; font-weight: bold; }
-        .tool-grid { display: grid; grid-template-columns: 1fr; gap: 5px; padding: 8px; overflow-y: auto; max-height: 400px; }
+        #map { 
+            flex: 1; 
+            background: #34495e; 
+            position: relative; 
+        }
+
+        /* ============================================
+           SIDEBAR
+        ============================================ */
+        #sidebar { 
+            width: 380px; 
+            background: #f8f9fa; 
+            border-left: 2px solid #95a5a6; 
+            display: flex; 
+            flex-direction: column; 
+            z-index: 1500; 
+            box-shadow: -2px 0 10px rgba(0,0,0,0.2);
+        }
+
+        .sb-header { 
+            padding: 12px; 
+            background: #34495e; 
+            color: white;
+            font-weight: bold; 
+            font-size: 1rem;
+            border-bottom: 2px solid #2c3e50;
+        }
+
+        #log-container { 
+            flex: 1; 
+            overflow-y: auto; 
+            padding: 10px; 
+            font-size: 0.85rem; 
+            background: white;
+        }
+
+        .log-entry {
+            padding: 5px 8px;
+            margin-bottom: 5px;
+            border-right: 3px solid #3498db;
+            background: #ecf0f1;
+            border-radius: 3px;
+        }
+
+        .log-entry .log-time {
+            color: #7f8c8d;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .log-entry .log-role {
+            color: #2c3e50;
+            font-weight: bold;
+        }
+
+        #req-header {
+            padding: 8px 12px;
+            background: #fff3cd;
+            border-top: 1px solid #ccc;
+            font-weight: bold;
+            font-size: 0.9rem;
+            color: #856404;
+        }
+
+        #req-container {
+            height: 150px;
+            overflow-y: auto;
+            padding: 5px;
+            background: #fffbf0;
+        }
+
+        .req-item {
+            background: white;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            padding: 8px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #chat-box {
+            padding: 10px;
+            background: #e9ecef;
+            border-top: 2px solid #95a5a6;
+        }
+
+        /* ============================================
+           DRAGGABLE PANELS
+        ============================================ */
+        .draggable-panel { 
+            position: absolute; 
+            background: rgba(255, 255, 255, 0.98); 
+            border-radius: 8px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4); 
+            z-index: 1000; 
+            min-width: 200px; 
+            max-width: 400px;
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden;
+            border: 2px solid #7f8c8d; 
+        }
         
-        .btn-tool { width: 100%; height: 38px; border: 1px solid #bdc3c7; background: white; border-radius: 4px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; padding: 0 10px; gap: 8px; font-weight: 600; font-size: 13px; text-align: right; position: relative; }
-        .btn-tool:hover { background: #ecf0f1; transform: translateX(-2px); }
-        .btn-tool.active { background: #3498db; color: white; border-color: #2980b9; }
-        .btn-tool.available { background: #d4edda; color: #155724; border-color: #c3e6cb; animation: pulse 2s infinite; }
-        .badge-count { background: #c0392b; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; margin-right: auto; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(40,167,69,0.4); } 70% { box-shadow: 0 0 0 10px rgba(40,167,69,0); } 100% { box-shadow: 0 0 0 0 rgba(40,167,69,0); } }
+        .panel-handle { 
+            background: linear-gradient(135deg, #2c3e50, #34495e); 
+            height: 32px; 
+            cursor: move; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            color: white; 
+            font-size: 0.9rem; 
+            font-weight: bold; 
+            user-select: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
 
-        .icon-unit { background: white; border: 2px solid black; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 11px; position: relative; box-shadow: 2px 2px 4px rgba(0,0,0,0.5); transition: all 0.5s linear; }
-        .unit-saar { width: 40px; height: 24px; border-color: #c0392b; color: #c0392b; }
-        .unit-eshed { width: 50px; height: 28px; border-color: #8e44ad; color: #8e44ad; }
-        .unit-heli { width: 34px; height: 34px; border-radius: 50%; background: white; border: 2px solid #2980b9; color: #2980b9; display: flex; justify-content: center; align-items: center; font-size: 18px; transition: all 0.5s linear; }
-        .unit-empty { filter: grayscale(100%); border-style: dashed; }
-        .water-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 4px; background: #ddd; }
-        .water-fill { height: 100%; background: #3498db; transition: width 0.5s; }
-
-        #legend { position: absolute; bottom: 20px; left: 20px; background: rgba(255,255,255,0.9); padding: 10px; border-radius: 5px; z-index: 1000; font-size: 0.8rem; pointer-events: none; }
-        .leg-item { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
-        .leg-color { width: 12px; height: 12px; border-radius: 50%; }
-
-        #toast-container { position: absolute; top: 90px; left: 50%; transform: translateX(-50%); z-index: 9999; pointer-events: none; }
-        .toast-msg { background: rgba(44, 62, 80, 0.95); color: white; padding: 10px 25px; border-radius: 25px; margin-bottom: 10px; font-weight: bold; box-shadow: 0 5px 15px rgba(0,0,0,0.3); animation: fadein 0.3s, fadeout 0.5s 2.5s forwards; }
-        @keyframes fadein { from {opacity:0; transform: translateY(-10px);} to {opacity:1; transform: translateY(0);} }
-        @keyframes fadeout { from {opacity:1;} to {opacity:0;} }
-
-        #alloc-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; align-items:center; justify-content:center; }
-        .alloc-box { background:white; padding:20px; border-radius:10px; width:300px; text-align:center; }
-        .alloc-btn { display:block; width:100%; padding:10px; margin:5px 0; background:#ecf0f1; border:none; cursor:pointer; font-weight:bold; }
-        .alloc-btn:hover { background:#bdc3c7; }
-
-        #report-view { display: none; color: black; font-family: serif; padding: 40px; }
-        .rep-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
-        .rep-table th, .rep-table td { border: 1px solid #999; padding: 8px; text-align: right; }
-        .rep-table th { background: #eee; }
-
-        .credit-box { position: absolute; bottom: 5px; right: 10px; font-size: 11px; color: rgba(255,255,255,0.7); z-index: 9999; pointer-events: none; font-weight: bold; }
+        .panel-handle:hover {
+            background: linear-gradient(135deg, #34495e, #2c3e50);
+        }
         
-        .active-mode-banner { display:none; position:absolute; top:80px; left:50%; transform:translateX(-50%); background:red; color:white; padding:5px 15px; border-radius:5px; z-index:1001; font-weight:bold; animation: pulse-red 1s infinite; }
-        @keyframes pulse-red { 0% {opacity:1;} 50% {opacity:0.7;} 100% {opacity:1;} }
-        .draw-tooltip { position:absolute; background:black; color:white; padding:2px 5px; border-radius:3px; font-size:12px; pointer-events:none; z-index:2000; }
+        .tool-grid { 
+            display: grid; 
+            grid-template-columns: 1fr; 
+            gap: 6px; 
+            padding: 10px; 
+            overflow-y: auto; 
+            max-height: 500px; 
+        }
+        
+        /* ============================================
+           TOOL BUTTONS
+        ============================================ */
+        .btn-tool { 
+            width: 100%; 
+            min-height: 42px; 
+            border: 1px solid #bdc3c7; 
+            background: white; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between;
+            padding: 0 12px; 
+            gap: 10px; 
+            font-weight: 600; 
+            font-size: 14px; 
+        }
+        
+        .btn-tool:hover:not(:disabled) { 
+            background: #ecf0f1; 
+            transform: translateX(-3px); 
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .btn-tool.active { 
+            background: #3498db; 
+            color: white; 
+            border-color: #2980b9; 
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+        }
+        
+        .btn-tool.available { 
+            background: #d4edda; 
+            color: #155724; 
+            border: 2px solid #28a745;
+            animation: pulse-green 2s infinite; 
+        }
+
+        .btn-tool:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .badge-count { 
+            background: #e74c3c; 
+            color: white; 
+            border-radius: 12px; 
+            min-width: 22px; 
+            height: 22px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 11px; 
+            font-weight: bold;
+            padding: 0 6px;
+        }
+        
+        @keyframes pulse-green { 
+            0% { box-shadow: 0 0 0 0 rgba(40,167,69,0.5); } 
+            70% { box-shadow: 0 0 0 12px rgba(40,167,69,0); } 
+            100% { box-shadow: 0 0 0 0 rgba(40,167,69,0); } 
+        }
+
+        /* ============================================
+           UNIT ICONS
+        ============================================ */
+        .icon-unit { 
+            background: white; 
+            border: 2px solid black; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            font-weight: bold; 
+            font-size: 11px; 
+            position: relative; 
+            box-shadow: 2px 2px 6px rgba(0,0,0,0.5); 
+            transition: all 0.3s linear; 
+        }
+        
+        .unit-saar { 
+            width: 40px; 
+            height: 24px; 
+            border-color: #c0392b; 
+            color: #c0392b; 
+        }
+        
+        .unit-eshed { 
+            width: 50px; 
+            height: 28px; 
+            border-color: #8e44ad; 
+            color: #8e44ad; 
+        }
+        
+        .unit-heli { 
+            width: 36px; 
+            height: 36px; 
+            border-radius: 50%; 
+            background: white; 
+            border: 2px solid #2980b9; 
+            color: #2980b9; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            font-size: 20px; 
+        }
+
+        .unit-d9 {
+            width: 36px;
+            height: 36px;
+            border-radius: 4px;
+            background: #f39c12;
+            border: 2px solid #d68910;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+        }
+        
+        .unit-empty { 
+            filter: grayscale(100%); 
+            opacity: 0.6;
+            border-style: dashed; 
+        }
+        
+        .water-bar { 
+            position: absolute; 
+            bottom: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 5px; 
+            background: #ecf0f1; 
+            border-top: 1px solid #95a5a6;
+        }
+        
+        .water-fill { 
+            height: 100%; 
+            background: linear-gradient(to right, #3498db, #2980b9); 
+            transition: width 0.5s; 
+        }
+
+        /* ============================================
+           MAP ELEMENTS
+        ============================================ */
+        #legend { 
+            position: absolute; 
+            bottom: 20px; 
+            left: 20px; 
+            background: rgba(255,255,255,0.95); 
+            padding: 12px; 
+            border-radius: 6px; 
+            z-index: 1000; 
+            font-size: 0.85rem; 
+            pointer-events: none; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        
+        .leg-item { 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            margin-bottom: 4px; 
+        }
+        
+        .leg-color { 
+            width: 16px; 
+            height: 16px; 
+            border-radius: 3px; 
+            border: 1px solid #333;
+        }
+
+        /* ============================================
+           TOAST MESSAGES
+        ============================================ */
+        #toast-container { 
+            position: absolute; 
+            top: 90px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            z-index: 9999; 
+            pointer-events: none; 
+        }
+        
+        .toast-msg { 
+            background: rgba(44, 62, 80, 0.95); 
+            color: white; 
+            padding: 12px 30px; 
+            border-radius: 25px; 
+            margin-bottom: 10px; 
+            font-weight: bold; 
+            box-shadow: 0 5px 20px rgba(0,0,0,0.4); 
+            animation: fadein 0.3s, fadeout 0.5s 2.5s forwards; 
+            font-size: 0.95rem;
+        }
+        
+        @keyframes fadein { 
+            from {opacity:0; transform: translateY(-15px);} 
+            to {opacity:1; transform: translateY(0);} 
+        }
+        @keyframes fadeout { 
+            from {opacity:1;} 
+            to {opacity:0;} 
+        }
+
+        /* ============================================
+           MODALS
+        ============================================ */
+        #alloc-modal { 
+            display:none; 
+            position:fixed; 
+            top:0; 
+            left:0; 
+            width:100%; 
+            height:100%; 
+            background:rgba(0,0,0,0.6); 
+            z-index:99999; 
+            align-items:center; 
+            justify-content:center; 
+        }
+        
+        .alloc-box { 
+            background:white; 
+            padding:25px; 
+            border-radius:12px; 
+            width:350px; 
+            text-align:center; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        .alloc-box h4 {
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        
+        .alloc-btn { 
+            display:block; 
+            width:100%; 
+            padding:12px; 
+            margin:8px 0; 
+            background:#ecf0f1; 
+            border:2px solid #bdc3c7; 
+            cursor:pointer; 
+            font-weight:bold; 
+            border-radius: 6px;
+            transition: all 0.2s;
+            font-size: 1rem;
+        }
+        
+        .alloc-btn:hover { 
+            background:#bdc3c7; 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .alloc-btn.cancel {
+            background: #e74c3c;
+            color: white;
+            border-color: #c0392b;
+        }
+
+        .alloc-btn.cancel:hover {
+            background: #c0392b;
+        }
+
+        /* ============================================
+           SPECIAL ELEMENTS
+        ============================================ */
+        .credit-box { 
+            position: absolute; 
+            bottom: 8px; 
+            right: 12px; 
+            font-size: 11px; 
+            color: rgba(255,255,255,0.8); 
+            z-index: 9999; 
+            pointer-events: none; 
+            font-weight: bold; 
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        .active-mode-banner { 
+            display:none; 
+            position:absolute; 
+            top:85px; 
+            left:50%; 
+            transform:translateX(-50%); 
+            background:#e74c3c; 
+            color:white; 
+            padding:10px 25px; 
+            border-radius:6px; 
+            z-index:1001; 
+            font-weight:bold; 
+            animation: pulse-red 1.5s infinite; 
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.5);
+            font-size: 1rem;
+        }
+        
+        @keyframes pulse-red { 
+            0%, 100% {opacity:1; transform: translateX(-50%) scale(1);} 
+            50% {opacity:0.8; transform: translateX(-50%) scale(1.05);} 
+        }
+        
+        .draw-tooltip { 
+            position:absolute; 
+            background:rgba(0,0,0,0.9); 
+            color:white; 
+            padding:4px 10px; 
+            border-radius:4px; 
+            font-size:13px; 
+            pointer-events:none; 
+            z-index:2000; 
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+
+        /* ============================================
+           LOGIN OVERLAY
+        ============================================ */
+        #login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.5);
+            width: 550px;
+            text-align: center;
+        }
+
+        .login-box h2 {
+            color: #e74c3c;
+            margin-bottom: 30px;
+            font-weight: bold;
+        }
+
+        .role-btn {
+            width: 100%;
+            padding: 20px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border: 2px solid #34495e;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .role-btn:hover {
+            background: #ecf0f1;
+            transform: translateY(-2px);
+        }
+
+        .role-btn.active {
+            background: #3498db;
+            color: white;
+            border-color: #2980b9;
+        }
     </style>
-</head>
-<body>
+</head><body>
 
+    <!-- Credit -->
     <div class="credit-box">נוצר ע"י נצר שמעוני</div>
-    <div id="active-mode-banner" class="active-mode-banner">מצב הצבה פעיל - לחץ במפה</div>
 
+    <!-- Active Mode Banner -->
+    <div id="active-mode-banner" class="active-mode-banner">
+        מצב הצבה פעיל - לחץ על המפה להצבת הכלי
+    </div>
+
+    <!-- Allocation Modal -->
     <div id="alloc-modal">
         <div class="alloc-box">
             <h4>בחר גזרה להקצאה</h4>
@@ -101,160 +638,263 @@
             <button class="alloc-btn" onclick="confirmAlloc('ב')">גזרה ב'</button>
             <button class="alloc-btn" onclick="confirmAlloc('ג')">גזרה ג'</button>
             <button class="alloc-btn" onclick="confirmAlloc('ד')">גזרה ד'</button>
-            <button class="alloc-btn" onclick="closeAlloc()" style="color:red">ביטול</button>
+            <button class="alloc-btn cancel" onclick="closeAlloc()">ביטול</button>
         </div>
     </div>
 
-    <div id="report-view">
-        <div style="text-align:center; border-bottom:3px solid black; padding-bottom:10px; margin-bottom:20px; display:flex; align-items:center; justify-content:center; gap:20px;">
-            <img src="logo.jpg" style="height:100px;" onerror="this.style.display='none'">
-            <div><h1>דוח תחקיר אירוע</h1><h3>מגמת יער ושטחים פתוחים</h3><h4 id="rep-date"></h4></div>
-        </div>
-        <h4>1. תמונת מצב סופית:</h4>
-        <div id="map-snapshot"></div>
-        <br>
-        <h4>2. סד"כ כוחות:</h4>
-        <div id="rep-forces"></div>
-        <br>
-        <h4>3. יומן מבצעים:</h4>
-        <table class="rep-table">
-            <thead><tr><th>שעה</th><th>תפקיד</th><th>שם</th><th>דיווח</th></tr></thead>
-            <tbody id="rep-log-body"></tbody>
-        </table>
-    </div>
-
+    <!-- Toast Container -->
     <div id="toast-container"></div>
 
-    <div id="login-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#2c3e50; z-index:9999; display:flex; align-items:center; justify-content:center;">
-        <div class="bg-white p-5 rounded shadow text-center" style="width:500px;">
-            <h2 class="text-danger mb-4">סימולטור ניהול שריפה - V37</h2>
-            <div class="mb-3">
+    <!-- Login Overlay -->
+    <div id="login-overlay">
+        <div class="login-box">
+            <h2>סימולטור ניהול שריפה בשטחים פתוחים</h2>
+            <p style="color: #7f8c8d; margin-bottom: 25px;">גרסה 38 - מערכת מודולרית משופרת</p>
+            
+            <div class="mb-4">
                 <div class="row g-2">
-                    <div class="col-4"><button class="btn btn-outline-dark w-100 py-3" onclick="setRole('admin',this)">חפ"ק</button></div>
-                    <div class="col-4"><button class="btn btn-outline-dark w-100 py-3" onclick="setRole('ic',this)">מפקד אירוע</button></div>
-                    <div class="col-4"><button class="btn btn-outline-dark w-100 py-3" onclick="setRole('sector',this)">מפקד גזרה</button></div>
+                    <div class="col-4">
+                        <button class="role-btn" onclick="setRole('admin',this)">חפ״ק</button>
+                    </div>
+                    <div class="col-4">
+                        <button class="role-btn" onclick="setRole('ic',this)">מפקד אירוע</button>
+                    </div>
+                    <div class="col-4">
+                        <button class="role-btn" onclick="setRole('sector',this)">מפקד גזרה</button>
+                    </div>
                 </div>
             </div>
+            
             <select id="sector-sel" class="form-select mb-3 text-center fs-5" style="display:none;">
-                <option value="א">גזרה א'</option><option value="ב">גזרה ב'</option>
-                <option value="ג">גזרה ג'</option><option value="ד">גזרה ד'</option>
+                <option value="א">גזרה א'</option>
+                <option value="ב">גזרה ב'</option>
+                <option value="ג">גזרה ג'</option>
+                <option value="ד">גזרה ד'</option>
             </select>
+            
             <input type="text" id="username" class="form-control mb-3 text-center fs-5" placeholder="שם מלא">
-            <button class="btn btn-danger w-100 py-3 fw-bold fs-4" onclick="login()">כניסה למערכת</button>
+            
+            <button class="btn btn-danger w-100 py-3 fw-bold fs-4" onclick="login()">
+                כניסה למערכת
+            </button>
         </div>
     </div>
 
+    <!-- Top Bar -->
     <div id="top-bar">
-        <div style="display:flex; align-items:center; gap:15px;">
-            <div class="logo-box"><img src="logo.jpg" onerror="this.style.display='none'"></div>
+        <!-- Left Section: Logo & User Info -->
+        <div style="display:flex; align-items:center; gap:20px;">
+            <div class="logo-box">
+                <img src="logo.jpg" onerror="this.style.display='none'">
+            </div>
             <div class="text-white">
-                <div id="user-display" class="fw-bold">אורח</div>
-                <div id="role-display" class="small text-white-50"></div>
+                <div id="user-display" class="fw-bold" style="font-size: 1.1rem;">אורח</div>
+                <div id="role-display" class="small" style="color: #bdc3c7;"></div>
             </div>
             <div class="force-panel">
-                <div class="fp-item"><div class="fp-val" id="cnt-event">0</div><div class="fp-lbl">באירוע</div></div>
-                <div class="fp-item"><div class="fp-val" id="cnt-move">0</div><div class="fp-lbl">בדרך</div></div>
-                <div class="fp-item"><div class="fp-val" id="cnt-stage">0</div><div class="fp-lbl">בכינוס</div></div>
-                <div class="fp-item"><div class="fp-val" id="cnt-air">0</div><div class="fp-lbl">אוויר</div></div>
+                <div class="fp-item">
+                    <div class="fp-val" id="cnt-event">0</div>
+                    <div class="fp-lbl">באירוע</div>
+                </div>
+                <div class="fp-item">
+                    <div class="fp-val" id="cnt-move">0</div>
+                    <div class="fp-lbl">בדרך</div>
+                </div>
+                <div class="fp-item">
+                    <div class="fp-val" id="cnt-stage">0</div>
+                    <div class="fp-lbl">בכינוס</div>
+                </div>
+                <div class="fp-item">
+                    <div class="fp-val" id="cnt-air">0</div>
+                    <div class="fp-lbl">אוויר</div>
+                </div>
             </div>
         </div>
 
+        <!-- Center: Clock -->
         <div id="clock-display" class="clock-display">T+00:00</div>
 
-        <div style="display:flex; align-items:center; gap:15px;">
-            <div style="font-size:0.8rem; text-align:right; color:white;">
+        <!-- Right Section: Weather & Controls -->
+        <div style="display:flex; align-items:center; gap:20px;">
+            <div style="font-size:0.85rem; text-align:right; color:white;">
                 <div><span id="val-wind">0</span> קמ"ש</div>
-                <div class="text-white-50"><span id="val-temp">25</span>°C</div>
+                <div style="color: #bdc3c7;"><span id="val-temp">25</span>°C</div>
             </div>
             <div class="wind-widget">
-                <div class="wind-rose"><div class="wind-arrow" id="wind-arrow"></div></div>
+                <div class="wind-rose">
+                    <div class="wind-arrow" id="wind-arrow"></div>
+                </div>
             </div>
-            <button class="btn btn-sm btn-outline-warning" onclick="togglePred()" title="חיזוי"><i class="fa-solid fa-stopwatch"></i></button>
-            <button class="btn btn-sm btn-outline-light" onclick="genReport()" title="דוח"><i class="fa-solid fa-print"></i></button>
+            <button class="btn btn-sm btn-outline-warning" onclick="togglePred()" title="חיזוי התפשטות">
+                <i class="fa-solid fa-clock"></i>
+            </button>
         </div>
     </div>
 
+    <!-- Main Container -->
     <div id="main-container">
+        <!-- Map -->
         <div id="map">
+            <!-- Legend -->
             <div id="legend">
-                <div class="fw-bold border-bottom mb-1">מקרא</div>
-                <div class="leg-item"><div class="leg-color" style="background:yellow"></div> נמוכה</div>
-                <div class="leg-item"><div class="leg-color" style="background:orange"></div> בינונית</div>
-                <div class="leg-item"><div class="leg-color" style="background:red"></div> גבוהה</div>
-                <div class="leg-item"><div class="leg-color" style="background:purple"></div> קיצונית</div>
-                <div class="leg-item"><div class="leg-color" style="background:black"></div> שטח שרוף</div>
+                <div class="fw-bold border-bottom mb-2 pb-1">מקרא</div>
+                <div class="leg-item">
+                    <div class="leg-color" style="background:yellow"></div>
+                    <span>נמוכה</span>
+                </div>
+                <div class="leg-item">
+                    <div class="leg-color" style="background:orange"></div>
+                    <span>בינונית</span>
+                </div>
+                <div class="leg-item">
+                    <div class="leg-color" style="background:red"></div>
+                    <span>גבוהה</span>
+                </div>
+                <div class="leg-item">
+                    <div class="leg-color" style="background:purple"></div>
+                    <span>קיצונית</span>
+                </div>
+                <div class="leg-item">
+                    <div class="leg-color" style="background:black"></div>
+                    <span>שטח שרוף</span>
+                </div>
             </div>
 
+            <!-- Admin Panel -->
             <div class="draggable-panel" id="p-admin" style="top:20px; right:20px; display:none;">
-                <div class="panel-handle">חפ"ק (מנהלת)</div>
+                <div class="panel-handle">חפ״ק - מנהלת</div>
                 <div class="tool-grid">
-                    <button class="btn-tool" onclick="setTool('fire',event)"><i class="fa-solid fa-fire text-danger"></i> הצתת אש</button>
-                    <button class="btn-tool" onclick="editMeteo()"><i class="fa-solid fa-cloud"></i> מזג אוויר</button>
-                    <button class="btn-tool" onclick="setTool('water',event)"><i class="fa-solid fa-droplet text-primary"></i> מים (סער)</button>
-                    <button class="btn-tool" onclick="setTool('pool',event)"><i class="fa-solid fa-water text-info"></i> בריכה (מסוק)</button>
-                    <button class="btn-tool" onclick="resetGame()"><i class="fa-solid fa-trash"></i> איפוס</button>
+                    <button class="btn-tool" onclick="setTool('fire')">
+                        <span><i class="fa-solid fa-fire text-danger"></i> הצתת אש</span>
+                    </button>
+                    <button class="btn-tool" onclick="editMeteo()">
+                        <span><i class="fa-solid fa-wind"></i> עדכון מזג אוויר</span>
+                    </button>
+                    <button class="btn-tool" onclick="setTool('water')">
+                        <span><i class="fa-solid fa-droplet text-primary"></i> מקור מים (ברז)</span>
+                    </button>
+                    <button class="btn-tool" onclick="setTool('pool')">
+                        <span><i class="fa-solid fa-water text-info"></i> בריכת מילוי (מסוק)</span>
+                    </button>
+                    <hr style="margin: 5px 0;">
+                    <button class="btn-tool" onclick="resetGame()">
+                        <span><i class="fa-solid fa-trash-can"></i> איפוס מערכת</span>
+                    </button>
                 </div>
             </div>
 
+            <!-- IC Panel -->
             <div class="draggable-panel" id="p-ic" style="top:20px; right:20px; display:none;">
-                <div class="panel-handle">מפקד אירוע</div>
+                <div class="panel-handle">מפקד אירוע - IC</div>
                 <div class="tool-grid">
-                    <button class="btn-tool" onclick="setTool('cp',event)"><i class="fa-solid fa-flag text-danger"></i> חפ"ק</button>
-                    <button class="btn-tool" onclick="setTool('staging',event)"><i class="fa-solid fa-circle-h text-danger"></i> שט"כ</button>
-                    <button class="btn-tool" onclick="setTool('sector_draw',event)"><i class="fa-solid fa-draw-polygon text-warning"></i> שרטוט גזרה</button>
-                    <button class="btn-tool" onclick="deleteSector()"><i class="fa-solid fa-eraser"></i> מחק גזרה</button>
-                    <hr style="margin:2px">
+                    <button class="btn-tool" onclick="setTool('cp')">
+                        <span><i class="fa-solid fa-flag text-danger"></i> חפ״ק (CP)</span>
+                    </button>
+                    <button class="btn-tool" onclick="setTool('staging')">
+                        <span><i class="fa-solid fa-h-square text-warning"></i> שט״כ (Staging)</span>
+                    </button>
+                    <button class="btn-tool" onclick="setTool('sector_draw')">
+                        <span><i class="fa-solid fa-draw-polygon text-warning"></i> שרטוט גזרה</span>
+                    </button>
+                    <button class="btn-tool" onclick="deleteSector()">
+                        <span><i class="fa-solid fa-eraser"></i> מחיקת גזרה</span>
+                    </button>
+                    
+                    <hr style="margin: 5px 0;">
+                    <div style="padding: 5px; background: #f8f9fa; font-size: 0.8rem; font-weight: bold; color: #495057;">
+                        בנק משאבים זמינים:
+                    </div>
                     <div id="ic-bank-tools"></div>
-                    <hr style="margin:2px">
-                    <button class="btn-tool" onclick="reqRes('saar')"><i class="fa-solid fa-plus text-muted"></i> בקש סער</button>
-                    <button class="btn-tool" onclick="reqRes('eshed')"><i class="fa-solid fa-plus text-muted"></i> בקש אשד</button>
-                    <button class="btn-tool" onclick="reqRes('heli')"><i class="fa-solid fa-plus text-muted"></i> בקש מסוק</button>
-                    <button class="btn-tool" onclick="reqD9()"><i class="fa-solid fa-plus text-muted"></i> בקש D9</button>
-                    <button class="btn-tool" onclick="reqRes('plane_red')"><i class="fa-solid fa-plane text-danger"></i> מטוס מעכב</button>
-                    <button class="btn-tool" onclick="reqRes('plane_blue')"><i class="fa-solid fa-plane text-primary"></i> מטוס מים</button>
-                    <hr style="margin:2px">
-                    <button class="btn-tool" onclick="setTool('sym_risk',event)">סיכון מיוחד (▼)</button>
-                    <button class="btn-tool" onclick="setTool('sym_defense',event)">הגנה קריטית (☼)</button>
-                    <button class="btn-tool" onclick="setTool('arrow',event)">חץ תקיפה (➜)</button>
-                    <button class="btn-tool" onclick="setTool('route',event)">נתיב נסיעה</button>
+                    
+                    <hr style="margin: 5px 0;">
+                    <div style="padding: 5px; background: #fff3cd; font-size: 0.8rem; font-weight: bold; color: #856404;">
+                        בקשת משאבים:
+                    </div>
+                    <button class="btn-tool" onclick="reqRes('saar')">
+                        <span><i class="fa-solid fa-plus-circle"></i> בקש סער</span>
+                    </button>
+                    <button class="btn-tool" onclick="reqRes('eshed')">
+                        <span><i class="fa-solid fa-plus-circle"></i> בקש אשד</span>
+                    </button>
+                    <button class="btn-tool" onclick="reqRes('heli')">
+                        <span><i class="fa-solid fa-plus-circle"></i> בקש מסוק</span>
+                    </button>
+                    <button class="btn-tool" onclick="reqRes('D9')">
+                        <span><i class="fa-solid fa-plus-circle"></i> בקש D9</span>
+                    </button>
+                    
+                    <hr style="margin: 5px 0;">
+                    <div style="padding: 5px; background: #e7f3ff; font-size: 0.8rem; font-weight: bold; color: #004085;">
+                        סימבולים טקטיים:
+                    </div>
+                    <button class="btn-tool" onclick="setTool('sym_risk')">
+                        <span>▼ סיכון מיוחד</span>
+                    </button>
+                    <button class="btn-tool" onclick="setTool('sym_defense')">
+                        <span>☼ הגנה קריטית</span>
+                    </button>
+                    <button class="btn-tool" onclick="setTool('arrow')">
+                        <span>➜ חץ תקיפה</span>
+                    </button>
+                    <button class="btn-tool" onclick="setTool('route')">
+                        <span>➝ נתיב נסיעה</span>
+                    </button>
                 </div>
             </div>
 
+            <!-- Sector Panel -->
             <div class="draggable-panel" id="p-sector" style="bottom:20px; right:20px; display:none;">
                 <div class="panel-handle">מפקד גזרה</div>
                 <div class="tool-grid" id="sector-tools"></div>
             </div>
         </div>
 
+        <!-- Sidebar -->
         <div id="sidebar">
-            <div class="sb-header" style="padding:10px; background:#e9ecef; font-weight:bold;">יומן אירועים</div>
-            <div id="log-container" style="flex:1; overflow-y:auto; padding:5px; font-size:0.85rem;"></div>
+            <div class="sb-header">יומן אירועים</div>
+            <div id="log-container"></div>
             
-            <div style="padding:5px; background:#fff3cd; border-top:1px solid #ccc; font-weight:bold; font-size:0.9rem;">בקשות ממתינות</div>
-            <div id="req-container" style="height:150px; overflow-y:auto; padding:5px;"></div>
+            <div id="req-header">בקשות ממתינות לאישור</div>
+            <div id="req-container"></div>
             
-            <div style="padding:10px; background:#eee; border-top:1px solid #ccc;">
+            <div id="chat-box">
                 <div class="input-group">
-                    <input type="text" id="chat-in" class="form-control form-control-sm" placeholder="פקודה... (רווח לדיבור)">
-                    <button class="btn btn-primary btn-sm" onclick="sendChat()">></button>
+                    <input type="text" id="chat-in" class="form-control" placeholder="הקלד פקודה או דיווח... (רווח לדיבור)">
+                    <button class="btn btn-primary" onclick="sendChat()">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Leaflet Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     
-    <script>
-        // CONFIG
-        const firebaseConfig = { apiKey: "AIzaSyAprkTQI8h7ngt186yQSeYuBR37J7jjQBs", authDomain: "firesim2026.firebaseapp.com", databaseURL: "https://firesim2026-default-rtdb.firebaseio.com", projectId: "firesim2026", storageBucket: "firesim2026.firebasestorage.app", messagingSenderId: "816221488429", appId: "1:816221488429:web:8422845f75f8656d2abfa4", measurementId: "G-P77FYQT1C7" };
+    <script>// ============================================================
+        // CONFIGURATION & CONSTANTS
+        // ============================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyAprkTQI8h7ngt186yQSeYuBR37J7jjQBs",
+            authDomain: "firesim2026.firebaseapp.com",
+            databaseURL: "https://firesim2026-default-rtdb.firebaseio.com",
+            projectId: "firesim2026",
+            storageBucket: "firesim2026.firebasestorage.app",
+            messagingSenderId: "816221488429",
+            appId: "1:816221488429:web:8422845f75f8656d2abfa4",
+            measurementId: "G-P77FYQT1C7"
+        };
+        
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
         
-        const GAME_ID = "drill_v37";
+        const GAME_ID = "drill_v38";
         const TIME_FACTOR = 10;
         const DEFAULT_POS = [32.928, 35.082];
-
-        // GLOBAL
+        
+        // ============================================================
+        // GLOBAL STATE
+        // ============================================================
         window.map = null;
         window.layers = {};
         window.myRole = null;
@@ -263,60 +903,114 @@
         window.activeTool = null;
         window.selectedToken = null;
         window.pendingAllocId = null;
-        window.fireNodesCache = {}; // For Physics
         window.tooltipDiv = null;
         
-        let polyPoints=[], dragStart=null, tempLine=null;
-        let gameState = { start:Date.now(), wind:10, windDir:270, temp:25 };
-        let showPrediction = false, sectorUnits = {}, icBank = {};
-
-        // --- INIT ---
-        window.setRole = (r,el) => { 
-            document.querySelectorAll('.btn-outline-dark').forEach(b=>b.classList.remove('active')); 
-            el.classList.add('active'); 
-            window.myRole=r; 
-            document.getElementById('sector-sel').style.display=(r==='sector')?'block':'none'; 
+        let polyPoints = [];
+        let dragStart = null;
+        let tempLine = null;
+        let gameState = { start: Date.now(), wind: 10, windDir: 270, temp: 25 };
+        let showPrediction = false;
+        let sectorUnits = {};
+        let icBank = {};
+        let fireNodesCache = {};
+        
+        // ============================================================
+        // LOGIN & ROLE SELECTION
+        // ============================================================
+        window.setRole = (r, el) => {
+            document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+            window.myRole = r;
+            document.getElementById('sector-sel').style.display = (r === 'sector') ? 'block' : 'none';
         };
         
         window.login = () => {
-            if(!window.myRole) return showToast("בחר תפקיד");
-            window.myName = document.getElementById('username').value || "User";
-            if(window.myRole==='sector') window.mySector = document.getElementById('sector-sel').value;
+            if (!window.myRole) {
+                showToast("⚠️ אנא בחר תפקיד");
+                return;
+            }
             
-            document.getElementById('login-overlay').style.display='none';
+            window.myName = document.getElementById('username').value.trim() || "User";
+            if (window.myRole === 'sector') {
+                window.mySector = document.getElementById('sector-sel').value;
+            }
+            
+            document.getElementById('login-overlay').style.display = 'none';
             document.getElementById('user-display').innerText = window.myName;
             document.getElementById('role-display').innerText = getRoleNameDisplay();
             
-            if(window.myRole==='admin') { document.getElementById('p-admin').style.display='flex'; }
-            if(window.myRole==='ic') { document.getElementById('p-ic').style.display='flex'; checkIcStart(); }
-            if(window.myRole==='sector') { document.getElementById('p-sector').style.display='flex'; initSectorButtons(); }
-
+            if (window.myRole === 'admin') document.getElementById('p-admin').style.display = 'flex';
+            if (window.myRole === 'ic') {
+                document.getElementById('p-ic').style.display = 'flex';
+                checkIcStart();
+            }
+            if (window.myRole === 'sector') {
+                document.getElementById('p-sector').style.display = 'flex';
+                initSectorButtons();
+            }
+            
             makeDraggable();
-            setTimeout(() => { initMap(); syncData(); setInterval(gameLoop, 1000); }, 500);
+            setTimeout(() => {
+                initMap();
+                syncData();
+                setInterval(gameLoop, 1000);
+            }, 500);
         };
-
-        function getRoleNameDisplay() { 
-            if(window.myRole==='admin') return 'חפ"ק';
-            if(window.myRole==='ic') return 'מפקד אירוע';
-            return `מפקד גזרה ${window.mySector}`; 
+        
+        function getRoleNameDisplay() {
+            if (window.myRole === 'admin') return 'חפ״ק';
+            if (window.myRole === 'ic') return 'מפקד אירוע';
+            return `מפקד גזרה ${window.mySector}`;
         }
-
+        
         function checkIcStart() {
             db.ref(`games/${GAME_ID}/ic_bank`).get().then(s => {
-                if(!s.exists()) {
-                    db.ref(`games/${GAME_ID}/ic_bank`).push({type:'saar'});
-                    db.ref(`games/${GAME_ID}/ic_bank`).push({type:'saar'});
-                    db.ref(`games/${GAME_ID}/ic_bank`).push({type:'eshed'});
+                if (!s.exists()) {
+                    db.ref(`games/${GAME_ID}/ic_bank`).push({ type: 'saar' });
+                    db.ref(`games/${GAME_ID}/ic_bank`).push({ type: 'saar' });
+                    db.ref(`games/${GAME_ID}/ic_bank`).push({ type: 'eshed' });
+                    logSys("מערכת אותחלה עם 2 סערים ואשד אחד");
                 }
             });
         }
-
-        // --- MAP ---
+        
+        // ============================================================
+        // MAP INITIALIZATION
+        // ============================================================
         function initMap() {
-            window.map = L.map('map', {doubleClickZoom:false}).setView([32.73, 35.03], 14);
-            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap', crossOrigin: true }).addTo(window.map);
+            window.map = L.map('map', {
+                doubleClickZoom: false,
+                zoomControl: true
+            }).setView(DEFAULT_POS, 14);
             
-            ['burnt','fire','pred','polys','units','drawings','markers'].forEach(l => window.layers[l]=L.layerGroup().addTo(window.map));
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap',
+                crossOrigin: true
+            }).addTo(window.map);
+            
+            // Create custom panes with Z-Index
+            window.map.createPane('burntPane');
+            window.map.getPane('burntPane').style.zIndex = 400;
+            
+            window.map.createPane('firePane');
+            window.map.getPane('firePane').style.zIndex = 450;
+            
+            window.map.createPane('polysPane');
+            window.map.getPane('polysPane').style.zIndex = 500;
+            
+            window.map.createPane('drawingsPane');
+            window.map.getPane('drawingsPane').style.zIndex = 550;
+            
+            window.map.createPane('markersPane');
+            window.map.getPane('markersPane').style.zIndex = 600;
+            
+            window.map.createPane('unitsPane');
+            window.map.getPane('unitsPane').style.zIndex = 1000;
+            
+            ['burnt', 'fire', 'pred', 'polys', 'units', 'drawings', 'markers'].forEach(l => {
+                window.layers[l] = L.layerGroup().addTo(window.map);
+            });
             
             window.map.on('click', onMapClick);
             window.map.on('dblclick', onMapDblClick);
@@ -324,513 +1018,995 @@
             window.map.on('mousemove', onMouseMove);
             window.map.on('mouseup', onMouseUp);
         }
-
-        // --- INTERACTION ---
+        
+        // ============================================================
+        // MAP INTERACTION HANDLERS
+        // ============================================================
         function onMapClick(e) {
             let loc = e.latlng;
             
-            // Drawing Polygon
-            if(window.activeTool==='sector_draw' || window.activeTool==='route') {
+            if (window.activeTool === 'sector_draw' || window.activeTool === 'route') {
                 polyPoints.push(loc);
-                L.marker(loc,{icon:L.divIcon({className:'bg-dark rounded-circle', iconSize:[5,5]})}).addTo(window.layers.drawings);
+                L.marker(loc, {
+                    icon: L.divIcon({ className: 'bg-dark rounded-circle', iconSize: [6, 6] })
+                }).addTo(window.layers.drawings);
                 return;
             }
             
-            // Placing Unit (Smart Button)
-            if(window.activeTool==='place_unit' && window.selectedToken) { 
-                placeUnit(window.selectedToken, loc); 
+            if (window.activeTool === 'place_unit' && window.selectedToken) {
+                placeUnit(window.selectedToken, loc);
                 return;
             }
             
-            // Moving Unit
-            if(window.activeTool==='move_dest' && window.selectedToken) {
-                db.ref(`games/${GAME_ID}/units/${window.selectedToken}`).update({ destLat:loc.lat, destLng:loc.lng, status:'moving' });
-                logSys("פקודת תנועה");
+            if (window.activeTool === 'move_dest' && window.selectedToken) {
+                db.ref(`games/${GAME_ID}/units/${window.selectedToken}`).update({
+                    destLat: loc.lat,
+                    destLng: loc.lng,
+                    status: 'moving'
+                });
+                logSys("פקודת תנועה נשלחה");
                 deactivateTool();
                 return;
             }
             
-            if(!window.activeTool) return;
-
-            // Simple Placements
-            if(window.activeTool==='fire') {
-                db.ref(`games/${GAME_ID}/fire_nodes`).push({ lat:loc.lat, lng:loc.lng, start:getGameTime(), active:true, level:1, windDir:gameState.windDir });
-                logSys("הוצת מוקד אש");
-            }
-            if(window.activeTool==='water') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'water', lat:loc.lat, lng:loc.lng});
-            if(window.activeTool==='pool') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'pool', lat:loc.lat, lng:loc.lng});
-            if(window.activeTool==='staging') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'staging', lat:loc.lat, lng:loc.lng});
-            if(window.activeTool==='cp') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'cp', lat:loc.lat, lng:loc.lng});
-            if(window.activeTool==='sym_risk') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'sym_risk', lat:loc.lat, lng:loc.lng});
-            if(window.activeTool==='sym_defense') db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'sym_defense', lat:loc.lat, lng:loc.lng, radius:100});
-
-            // If not a dragging tool, reset
-            if(!['arrow','dozer','sector_draw','route','plane_red','plane_blue','sym_defense'].includes(window.activeTool)) deactivateTool();
-        }
-
-        function onMapDblClick() {
-            if(window.activeTool==='sector_draw' && polyPoints.length>2) {
-                db.ref(`games/${GAME_ID}/units`).push({type:'sector', name:prompt("שם הגזרה:")||"?", points:polyPoints});
-                polyPoints=[]; deactivateTool();
-            }
-            if(window.activeTool==='route' && polyPoints.length>1) {
-                db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:'route', points:polyPoints});
-                polyPoints=[]; deactivateTool();
-            }
-        }
-
-        function onMouseDown(e) { 
-            if(['arrow','dozer','plane_red','plane_blue','sym_defense'].includes(window.activeTool)) { 
-                window.map.dragging.disable(); 
-                dragStart=e.latlng; 
-            } 
-        }
-        function onMouseMove(e) { 
-            if(dragStart) { 
-                if(tempLine) window.map.removeLayer(tempLine);
-                let c = (window.activeTool==='dozer'||window.activeTool==='route')?'black':'red';
-                if(window.activeTool.includes('plane')) c = window.activeTool.includes('blue')?'blue':'red';
-                
-                // Show tooltip for drawing tools
-                let dist = window.map.distance(dragStart,e.latlng);
-                showTooltip(e.originalEvent, `${Math.round(dist)}m`);
-
-                if(window.activeTool.includes('plane') && dist > 85) {
-                    showTooltip(e.originalEvent, `${Math.round(dist)}m (מוגבל ל-85)`, 'red');
-                    c = 'gray'; // Invalid
-                }
-
-                if(window.activeTool==='sym_defense') {
-                    tempLine = L.circle(dragStart,{radius:dist, color:'black', fill:false}).addTo(window.map);
-                } else {
-                    tempLine = L.polyline([dragStart,e.latlng],{color:c, weight:4}).addTo(window.map);
-                }
-            } 
-        }
-        function onMouseUp(e) {
-            if(dragStart) {
-                hideTooltip();
-                let sub = window.activeTool;
-                let dist = window.map.distance(dragStart,e.latlng);
-
-                if(sub.includes('plane')) {
-                    if(dist <= 85) {
-                        db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:sub, p1:dragStart, p2:e.latlng, created:getGameTime()});
-                        // Decrement Plane count logic (Simulated here: remove from bank if count=0)
-                        if(window.selectedToken) {
-                             // Logic to reduce count or remove pair would go here. For now assume unlimited per approved request.
-                        }
-                    } else {
-                        showToast("חריגה מ-85 מטר - בוטל");
-                    }
-                } else if(sub==='dozer') {
-                    db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:'dozer', p1:dragStart, p2:e.latlng, start:getGameTime(), duration:(dist/3000)*3600000});
-                } else if(sub==='sym_defense') {
-                    db.ref(`games/${GAME_ID}/units`).push({type:'marker', sub:'sym_defense', lat:dragStart.lat, lng:dragStart.lng, radius:dist});
-                } else {
-                    db.ref(`games/${GAME_ID}/units`).push({type:'drawing', sub:'arrow', p1:dragStart, p2:e.latlng});
-                }
-                
-                dragStart=null; window.map.dragging.enable(); if(tempLine) window.map.removeLayer(tempLine); deactivateTool();
-            }
-        }
-
-        // --- PHYSICS (ADMIN ONLY) ---
-        function runPhysics(nodes, units, gt) {
-            if(window.myRole!=='admin') return; 
+            if (!window.activeTool) return;
             
-            // FIRE (Finger Spread + Merge + Trail)
+            if (window.activeTool === 'fire') {
+                db.ref(`games/${GAME_ID}/fire_nodes`).push({
+                    lat: loc.lat,
+                    lng: loc.lng,
+                    start: getGameTime(),
+                    active: true,
+                    level: 2,
+                    windDir: gameState.windDir,
+                    windSpeed: gameState.wind
+                });
+                logSys("🔥 הוצת מוקד אש");
+                deactivateTool();
+            }
+            
+            if (window.activeTool === 'water') {
+                db.ref(`games/${GAME_ID}/units`).push({
+                    type: 'marker', sub: 'water', lat: loc.lat, lng: loc.lng
+                });
+                logSys("💧 הוצב מקור מים");
+                deactivateTool();
+            }
+            
+            if (window.activeTool === 'pool') {
+                db.ref(`games/${GAME_ID}/units`).push({
+                    type: 'marker', sub: 'pool', lat: loc.lat, lng: loc.lng
+                });
+                logSys("🚁 הוצבה בריכת מילוי");
+                deactivateTool();
+            }
+            
+            if (window.activeTool === 'staging') {
+                db.ref(`games/${GAME_ID}/units`).push({
+                    type: 'marker', sub: 'staging', lat: loc.lat, lng: loc.lng
+                });
+                logSys("📍 הוצב שט״כ");
+                deactivateTool();
+            }
+            
+            if (window.activeTool === 'cp') {
+                db.ref(`games/${GAME_ID}/units`).push({
+                    type: 'marker', sub: 'cp', lat: loc.lat, lng: loc.lng
+                });
+                logSys("🚩 הוצב חפ״ק");
+                deactivateTool();
+            }
+            
+            if (window.activeTool === 'sym_risk') {
+                db.ref(`games/${GAME_ID}/units`).push({
+                    type: 'marker', sub: 'sym_risk', lat: loc.lat, lng: loc.lng
+                });
+                logSys("▼ סומן סיכון מיוחד");
+                deactivateTool();
+            }
+        }
+        
+        function onMapDblClick() {
+            if (window.activeTool === 'sector_draw' && polyPoints.length > 2) {
+                let name = prompt("שם הגזרה:") || "גזרה";
+                db.ref(`games/${GAME_ID}/units`).push({
+                    type: 'sector',
+                    name: name,
+                    points: polyPoints
+                });
+                logSys(`📐 נוצרה גזרה: ${name}`);
+                polyPoints = [];
+                deactivateTool();
+            }
+            
+            if (window.activeTool === 'route' && polyPoints.length > 1) {
+                db.ref(`games/${GAME_ID}/units`).push({
+                    type: 'drawing', sub: 'route', points: polyPoints
+                });
+                logSys("🛣️ נתיב נסיעה נשרטט");
+                polyPoints = [];
+                deactivateTool();
+            }
+        }
+        
+        function onMouseDown(e) {
+            if (['arrow', 'dozer', 'sym_defense'].includes(window.activeTool)) {
+                window.map.dragging.disable();
+                dragStart = e.latlng;
+            }
+        }
+        
+        function onMouseMove(e) {
+            if (dragStart) {
+                if (tempLine) window.map.removeLayer(tempLine);
+                
+                let dist = window.map.distance(dragStart, e.latlng);
+                let color = window.activeTool === 'dozer' ? 'gray' : 'red';
+                
+                showTooltip(e.originalEvent, `${Math.round(dist)}m`);
+                
+                if (window.activeTool === 'sym_defense') {
+                    tempLine = L.circle(dragStart, {
+                        radius: dist, color: 'black', fill: false, dashArray: '5,5'
+                    }).addTo(window.map);
+                } else {
+                    tempLine = L.polyline([dragStart, e.latlng], {
+                        color: color, weight: 4, dashArray: window.activeTool === 'dozer' ? '5,5' : ''
+                    }).addTo(window.map);
+                }
+            }
+        }
+        
+        function onMouseUp(e) {
+            if (dragStart) {
+                hideTooltip();
+                let dist = window.map.distance(dragStart, e.latlng);
+                
+                if (window.activeTool === 'dozer') {
+                    let duration = (dist / 3000) * 3600000;
+                    db.ref(`games/${GAME_ID}/units`).push({
+                        type: 'drawing', sub: 'dozer',
+                        p1: dragStart, p2: e.latlng,
+                        start: getGameTime(),
+                        duration: duration,
+                        distance: dist
+                    });
+                    logSys(`🚜 D9 החל עבודה - ${Math.round(dist)}m`);
+                } else if (window.activeTool === 'sym_defense') {
+                    db.ref(`games/${GAME_ID}/units`).push({
+                        type: 'marker', sub: 'sym_defense',
+                        lat: dragStart.lat, lng: dragStart.lng, radius: dist
+                    });
+                    logSys("☼ הוצבה נקודת הגנה קריטית");
+                } else if (window.activeTool === 'arrow') {
+                    db.ref(`games/${GAME_ID}/units`).push({
+                        type: 'drawing', sub: 'arrow', p1: dragStart, p2: e.latlng
+                    });
+                    logSys("➜ חץ תקיפה נוצר");
+                }
+                
+                dragStart = null;
+                window.map.dragging.enable();
+                if (tempLine) window.map.removeLayer(tempLine);
+                deactivateTool();
+            }
+        }// ============================================================
+        // PHYSICS ENGINE (ADMIN ONLY)
+        // ============================================================
+        function runPhysics(nodes, units, gt) {
+            if (window.myRole !== 'admin') return;
+            
             let updates = {};
             let activeList = [];
-            if(nodes) {
-                Object.entries(nodes).forEach(([k,n]) => { if(n.active) activeList.push({k, ...n}); });
-
-                // 1. Merge Close Nodes
+            
+            if (nodes) {
+                Object.entries(nodes).forEach(([k, n]) => {
+                    if (n.active) activeList.push({ k, ...n });
+                });
+                
+                // Merge close nodes
                 activeList.forEach((n1, i) => {
-                    for(let j=i+1; j<activeList.length; j++) {
+                    for (let j = i + 1; j < activeList.length; j++) {
                         let n2 = activeList[j];
-                        if(n2.active && window.map.distance([n1.lat,n1.lng], [n2.lat,n2.lng]) < 15) {
-                            updates[`${n2.k}/active`] = false; 
+                        if (n2.active && window.map.distance([n1.lat, n1.lng], [n2.lat, n2.lng]) < 20) {
+                            updates[`${n2.k}/active`] = false;
                         }
                     }
                 });
-
-                // 2. Spread (Directional Finger)
+                
+                // Fire spread and burnt trail
                 activeList.forEach(n => {
-                    if(updates[`${n.k}/active`]===false) return;
-                    let el = (gt - n.start)/1000;
-                    let speed = gameState.wind * 30; // m/h
-                    let dist = 50 + (speed * (el/3600));
+                    if (updates[`${n.k}/active`] === false) return;
                     
-                    // Create Trail (Burnt Spots)
-                    if(!n.lastDrop || (dist - n.lastDrop > 30)) {
+                    let elapsed = (gt - n.start) / 1000;
+                    let speed = (n.windSpeed || 10) * 30;
+                    let dist = 50 + (speed * (elapsed / 3600));
+                    
+                    if (!n.lastDrop || (dist - n.lastDrop > 40)) {
                         updates[`${n.k}/lastDrop`] = dist;
-                        let rad = (n.windDir-90)*(Math.PI/180);
-                        let off = dist / 111111;
+                        
+                        let windRad = ((n.windDir || 270) - 90) * (Math.PI / 180);
+                        let offset = dist / 111111;
+                        
                         db.ref(`games/${GAME_ID}/units`).push({
-                            type:'burnt_spot', lat: n.lat + off*Math.sin(rad), lng: n.lng + off*Math.cos(rad), radius: dist*0.35 // Elliptical effect
+                            type: 'burnt_spot',
+                            lat: n.lat + offset * Math.sin(windRad),
+                            lng: n.lng + offset * Math.cos(windRad),
+                            radius: dist * 0.4
                         });
                     }
                 });
             }
-            if(Object.keys(updates).length>0) db.ref(`games/${GAME_ID}/fire_nodes`).update(updates);
-
-            // UNITS Logic (Movement, Water) - SAME AS V36
+            
+            if (Object.keys(updates).length > 0) {
+                db.ref(`games/${GAME_ID}/fire_nodes`).update(updates);
+            }
+            
+            // Unit movement and refueling
             let uUpdates = {};
             let waterSources = [];
-            if(units) Object.values(units).forEach(u => { if(u.type==='marker' && (u.sub==='water'||u.sub==='pool')) waterSources.push(u); });
-
-            if(units) Object.entries(units).forEach(([k,u]) => {
-                if(u.type!=='unit') return;
-                // Move
-                if(u.status.includes('moving')) {
-                    let dst = L.latLng(u.destLat, u.destLng);
-                    let cur = L.latLng(u.lat, u.lng);
-                    if(cur.distanceTo(dst) < 50) {
-                        uUpdates[`${k}/status`] = u.status==='moving_to_refill' ? 'refilling' : 'idle';
-                        if(u.status==='moving_to_refill') uUpdates[`${k}/refillStart`] = gt;
-                    } else {
-                        let latDir = u.destLat - u.lat, lngDir = u.destLng - u.lng;
-                        let mag = Math.sqrt(latDir*latDir + lngDir*lngDir);
-                        let speed = (u.sub==='heli')?0.005 : 0.002;
-                        uUpdates[`${k}/lat`] = u.lat + (latDir/mag)*speed*0.1;
-                        uUpdates[`${k}/lng`] = u.lng + (lngDir/mag)*speed*0.1;
+            
+            if (units) {
+                Object.values(units).forEach(u => {
+                    if (u.type === 'marker' && (u.sub === 'water' || u.sub === 'pool')) {
+                        waterSources.push(u);
                     }
-                }
-                // Refill
-                if(u.status==='refilling' && (gt - u.refillStart > 600000)) {
-                    uUpdates[`${k}/water`] = 100;
-                    uUpdates[`${k}/status`] = u.sub==='heli' && u.lastWorkLat ? 'moving_to_work' : 'idle';
-                    if(u.sub==='heli' && u.lastWorkLat) { uUpdates[`${k}/destLat`]=u.lastWorkLat; uUpdates[`${k}/destLng`]=u.lastWorkLng; }
-                }
-                // Work
-                if(u.status==='idle' && u.water > 0) {
-                    let nearFire = false; // Simplified check
-                    if(nearFire) uUpdates[`${k}/water`] = u.water - 0.2;
-                    if(u.water <= 0) {
-                        // Auto Refill Logic
-                        let nearest=null, min=999999;
-                        let targetType = (u.sub==='heli')?'pool':'water';
-                        waterSources.forEach(w => { if(w.sub===targetType) { let d=window.map.distance([u.lat,u.lng],[w.lat,w.lng]); if(d<min){min=d;nearest=w;} } });
-                        if(nearest) {
+                });
+                
+                Object.entries(units).forEach(([k, u]) => {
+                    if (u.type !== 'unit') return;
+                    
+                    // Movement
+                    if (u.status && u.status.includes('moving')) {
+                        let dst = L.latLng(u.destLat, u.destLng);
+                        let cur = L.latLng(u.lat, u.lng);
+                        
+                        if (cur.distanceTo(dst) < 30) {
+                            uUpdates[`${k}/status`] = u.status === 'moving_to_refill' ? 'refilling' : 'idle';
+                            if (u.status === 'moving_to_refill') {
+                                uUpdates[`${k}/refillStart`] = gt;
+                            }
+                        } else {
+                            let latDir = u.destLat - u.lat;
+                            let lngDir = u.destLng - u.lng;
+                            let mag = Math.sqrt(latDir * latDir + lngDir * lngDir);
+                            let speed = (u.sub === 'heli') ? 0.006 : 0.003;
+                            
+                            uUpdates[`${k}/lat`] = u.lat + (latDir / mag) * speed;
+                            uUpdates[`${k}/lng`] = u.lng + (lngDir / mag) * speed;
+                        }
+                    }
+                    
+                    // Refilling
+                    if (u.status === 'refilling' && u.refillStart) {
+                        if (gt - u.refillStart > 300000) {
+                            uUpdates[`${k}/water`] = 100;
+                            uUpdates[`${k}/status`] = u.sub === 'heli' && u.lastWorkLat ? 'moving_to_work' : 'idle';
+                            if (u.sub === 'heli' && u.lastWorkLat) {
+                                uUpdates[`${k}/destLat`] = u.lastWorkLat;
+                                uUpdates[`${k}/destLng`] = u.lastWorkLng;
+                            }
+                        }
+                    }
+                    
+                    // Auto-refill when empty
+                    if (u.water <= 0 && u.status !== 'moving_to_refill' && u.status !== 'refilling') {
+                        let targetType = (u.sub === 'heli') ? 'pool' : 'water';
+                        let nearest = null;
+                        let minDist = 999999;
+                        
+                        waterSources.forEach(w => {
+                            if (w.sub === targetType) {
+                                let d = window.map.distance([u.lat, u.lng], [w.lat, w.lng]);
+                                if (d < minDist) {
+                                    minDist = d;
+                                    nearest = w;
+                                }
+                            }
+                        });
+                        
+                        if (nearest) {
                             uUpdates[`${k}/status`] = 'moving_to_refill';
-                            uUpdates[`${k}/destLat`] = nearest.lat; uUpdates[`${k}/destLng`] = nearest.lng;
-                            uUpdates[`${k}/lastWorkLat`] = u.lat; uUpdates[`${k}/lastWorkLng`] = u.lng;
+                            uUpdates[`${k}/destLat`] = nearest.lat;
+                            uUpdates[`${k}/destLng`] = nearest.lng;
+                            uUpdates[`${k}/lastWorkLat`] = u.lat;
+                            uUpdates[`${k}/lastWorkLng`] = u.lng;
                         }
                     }
-                }
-            });
-            if(Object.keys(uUpdates).length>0) db.ref(`games/${GAME_ID}/units`).update(uUpdates);
-        }
-
-        // --- UI ---
-        window.alloc = (type, id) => { window.pendingAllocId = id; document.getElementById('alloc-modal').style.display='flex'; };
-        window.closeAlloc = () => document.getElementById('alloc-modal').style.display='none';
-        window.confirmAlloc = (sec) => {
-            db.ref(`games/${GAME_ID}/ic_bank/${window.pendingAllocId}`).get().then(s => {
-                let type = s.val().type;
-                db.ref(`games/${GAME_ID}/ic_bank/${window.pendingAllocId}`).remove();
-                db.ref(`games/${GAME_ID}/sector_staging`).push({type:type, sector:sec, status:'available'});
-                logSys(`הוקצה ${type} לגזרה ${sec}`);
-                closeAlloc();
-            });
-        };
-
-        window.deleteSector = () => {
-            let n = prompt("שם גזרה למחיקה:");
-            if(n) {
-                db.ref(`games/${GAME_ID}/units`).get().then(s => {
-                    let d=s.val();
-                    if(d) Object.entries(d).forEach(([k,v]) => { 
-                        if(v.type==='sector' && v.name===n) db.ref(`games/${GAME_ID}/units/${k}`).remove(); 
-                        if(v.type==='unit' && v.sector===n) {
-                            db.ref(`games/${GAME_ID}/units/${k}`).remove();
-                            db.ref(`games/${GAME_ID}/ic_bank`).push({type:v.sub});
-                        }
-                    });
-                    logSys(`גזרה ${n} נמחקה וכוחותיה הוחזרו`);
                 });
             }
-        };
-
-        // --- RENDER ---
+            
+            if (Object.keys(uUpdates).length > 0) {
+                db.ref(`games/${GAME_ID}/units`).update(uUpdates);
+            }
+        }
+        
+        // ============================================================
+        // RENDERING
+        // ============================================================
+        function renderObject(k, u) {
+            if (u.type === 'unit') {
+                if (window.myRole === 'sector' && u.sector !== window.mySector) return;
+                
+                let html = '';
+                if (u.sub === 'heli') {
+                    html = `<div class="unit-heli"><i class="fa-solid fa-helicopter"></i></div>`;
+                } else if (u.sub === 'D9') {
+                    html = `<div class="unit-d9"><i class="fa-solid fa-tractor"></i></div>`;
+                } else {
+                    let cls = u.sub === 'saar' ? 'unit-saar' : 'unit-eshed';
+                    let empty = (u.water <= 0) ? 'unit-empty' : '';
+                    html = `<div class="icon-unit ${cls} ${empty}">
+                        ${u.callSign}
+                        <div class="water-bar">
+                            <div class="water-fill" style="width:${u.water}%"></div>
+                        </div>
+                    </div>`;
+                }
+                
+                let m = L.marker([u.lat, u.lng], {
+                    icon: L.divIcon({ html: html, className: '' }),
+                    pane: 'unitsPane'
+                }).addTo(window.layers.units);
+                
+                m.on('click', () => {
+                    if (window.activeTool === 'move_select') {
+                        window.selectedToken = k;
+                        window.activeTool = 'move_dest';
+                        document.getElementById('map').style.cursor = 'crosshair';
+                        showToast("בחר יעד על המפה");
+                    }
+                });
+            }
+            
+            if (u.type === 'burnt_spot') {
+                L.circle([u.lat, u.lng], {
+                    radius: u.radius,
+                    color: 'black',
+                    fillColor: 'black',
+                    fillOpacity: 0.6,
+                    stroke: false,
+                    pane: 'burntPane'
+                }).addTo(window.layers.burnt);
+            }
+            
+            if (u.type === 'marker') {
+                let html = '';
+                if (u.sub === 'cp') html = '<i class="fa-solid fa-flag text-danger fs-2"></i>';
+                if (u.sub === 'staging') html = '<i class="fa-solid fa-h-square text-warning fs-2"></i>';
+                if (u.sub === 'water') html = '<i class="fa-solid fa-droplet text-primary fs-3"></i>';
+                if (u.sub === 'pool') html = '<span class="fa-stack"><i class="fa-solid fa-circle text-info fa-stack-2x"></i><i class="fa-solid fa-h text-white fa-stack-1x"></i></span>';
+                if (u.sub === 'sym_risk') html = '<div style="color:#27ae60; font-size:28px;">▼</div>';
+                
+                if (u.sub === 'sym_defense') {
+                    L.circle([u.lat, u.lng], {
+                        radius: u.radius,
+                        color: 'black',
+                        fill: false,
+                        dashArray: '5,5',
+                        weight: 3,
+                        pane: 'markersPane'
+                    }).addTo(window.layers.markers);
+                    return;
+                }
+                
+                L.marker([u.lat, u.lng], {
+                    icon: L.divIcon({ html: html, className: '' }),
+                    pane: 'markersPane'
+                }).addTo(window.layers.markers);
+            }
+            
+            if (u.type === 'sector') {
+                L.polygon(u.points, {
+                    color: 'orange',
+                    fillOpacity: 0,
+                    dashArray: '8,8',
+                    weight: 3,
+                    interactive: false,
+                    pane: 'polysPane'
+                }).addTo(window.layers.polys).bindTooltip(u.name, {
+                    permanent: true,
+                    direction: "center"
+                });
+            }
+            
+            if (u.type === 'drawing') {
+                if (u.sub === 'dozer') {
+                    let progress = 0;
+                    if (u.duration) {
+                        progress = Math.min(1, (getGameTime() - u.start) / u.duration);
+                    }
+                    
+                    L.polyline([u.p1, u.p2], {
+                        color: 'gray',
+                        weight: 8,
+                        dashArray: '10,10',
+                        opacity: 0.5,
+                        pane: 'drawingsPane'
+                    }).addTo(window.layers.drawings);
+                    
+                    if (progress > 0) {
+                        let completedLat = u.p1.lat + (u.p2.lat - u.p1.lat) * progress;
+                        let completedLng = u.p1.lng + (u.p2.lng - u.p1.lng) * progress;
+                        
+                        L.polyline([u.p1, { lat: completedLat, lng: completedLng }], {
+                            color: 'black',
+                            weight: 8,
+                            pane: 'drawingsPane'
+                        }).addTo(window.layers.drawings);
+                        
+                        L.marker([completedLat, completedLng], {
+                            icon: L.divIcon({
+                                html: '<div class="unit-d9"><i class="fa-solid fa-tractor"></i></div>',
+                                className: ''
+                            }),
+                            pane: 'unitsPane'
+                        }).addTo(window.layers.units);
+                    }
+                } else if (u.sub === 'arrow') {
+                    L.polyline([u.p1, u.p2], {
+                        color: 'red',
+                        weight: 4,
+                        pane: 'drawingsPane'
+                    }).addTo(window.layers.drawings);
+                    
+                    L.marker(u.p2, {
+                        icon: L.divIcon({
+                            html: '<i class="fa-solid fa-caret-up text-danger fs-3"></i>',
+                            className: ''
+                        }),
+                        pane: 'drawingsPane'
+                    }).addTo(window.layers.drawings);
+                } else if (u.sub === 'route') {
+                    L.polyline(u.points, {
+                        color: 'blue',
+                        weight: 3,
+                        dashArray: '5,10',
+                        pane: 'drawingsPane'
+                    }).addTo(window.layers.drawings);
+                }
+            }
+        }
+        
+        function drawFire(nodes, gt) {
+            if (!nodes) return;
+            
+            Object.values(nodes).forEach(n => {
+                if (!n.active) return;
+                
+                let elapsed = (gt - n.start) / 1000;
+                let speed = (n.windSpeed || 10) * 30;
+                let dist = 50 + (speed * (elapsed / 3600));
+                
+                let windRad = ((n.windDir || 270) - 90) * (Math.PI / 180);
+                let offset = dist / 111111;
+                let center = [
+                    n.lat + offset * Math.sin(windRad),
+                    n.lng + offset * Math.cos(windRad)
+                ];
+                
+                let colors = ['gray', 'yellow', 'orange', 'orangered', 'red', 'purple'];
+                let color = colors[Math.min(n.level || 2, colors.length - 1)];
+                
+                L.circle(center, {
+                    radius: dist * 0.5,
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.5,
+                    weight: 2,
+                    pane: 'firePane'
+                }).addTo(window.layers.fire);
+                
+                if (showPrediction) {
+                    let predDist = dist + (speed * 2);
+                    let predOffset = predDist / 111111;
+                    let predCenter = [
+                        n.lat + predOffset * Math.sin(windRad),
+                        n.lng + predOffset * Math.cos(windRad)
+                    ];
+                    
+                    L.polyline([center, predCenter], {
+                        color: 'yellow',
+                        dashArray: '5,5',
+                        weight: 2,
+                        pane: 'firePane'
+                    }).addTo(window.layers.pred);
+                    
+                    L.circle(predCenter, {
+                        radius: predDist * 0.5,
+                        color: 'yellow',
+                        fill: false,
+                        dashArray: '5,5',
+                        weight: 2,
+                        pane: 'firePane'
+                    }).addTo(window.layers.pred);
+                }
+            });
+        }
+        
+        function handleWindChange(newState) {
+            db.ref(`games/${GAME_ID}/fire_nodes`).get().then(s => {
+                let nodes = s.val();
+                if (!nodes) return;
+                
+                let updates = {};
+                let gt = getGameTime();
+                
+                Object.entries(nodes).forEach(([k, n]) => {
+                    if (n.active) {
+                        updates[`${k}/active`] = false;
+                        
+                        let elapsed = (gt - n.start) / 1000;
+                        let speed = (n.windSpeed || 10) * 30;
+                        let dist = 50 + (speed * (elapsed / 3600));
+                        
+                        let windRad = ((n.windDir || 270) - 90) * (Math.PI / 180);
+                        let offset = dist / 111111;
+                        
+                        let newLat = n.lat + offset * Math.sin(windRad);
+                        let newLng = n.lng + offset * Math.cos(windRad);
+                        
+                        db.ref(`games/${GAME_ID}/fire_nodes`).push({
+                            lat: newLat,
+                            lng: newLng,
+                            start: gt,
+                            active: true,
+                            level: n.level,
+                            windDir: newState.windDir,
+                            windSpeed: newState.wind
+                        });
+                    }
+                });
+                
+                db.ref(`games/${GAME_ID}/fire_nodes`).update(updates);
+                logSys("🌀 שינוי רוח - חזיתות אש עודכנו");
+            });
+        }// ============================================================
+        // DATA SYNCHRONIZATION
+        // ============================================================
         function syncData() {
             db.ref(`games/${GAME_ID}/state`).on('value', s => {
-                let v=s.val(); if(v) { 
-                    if(v.lastWindChange !== gameState.lastWindChange && window.myRole==='admin') handleWindChange(v);
-                    gameState={...gameState,...v}; 
-                    document.getElementById('val-wind').innerText=v.wind;
-                    document.getElementById('val-temp').innerText=v.temp;
-                    document.getElementById('wind-arrow').style.transform=`translateX(-50%) rotate(${v.windDir}deg)`;
-                } else if(window.myRole==='admin') db.ref(`games/${GAME_ID}/state`).set(gameState);
+                let v = s.val();
+                if (v) {
+                    if (v.lastWindChange !== gameState.lastWindChange && window.myRole === 'admin') {
+                        handleWindChange(v);
+                    }
+                    gameState = { ...gameState, ...v };
+                    document.getElementById('val-wind').innerText = v.wind;
+                    document.getElementById('val-temp').innerText = v.temp;
+                    document.getElementById('wind-arrow').style.transform = `translateX(-50%) rotate(${v.windDir}deg)`;
+                } else if (window.myRole === 'admin') {
+                    db.ref(`games/${GAME_ID}/state`).set(gameState);
+                }
             });
-
+            
             db.ref(`games/${GAME_ID}/units`).on('value', s => {
                 let d = s.val();
-                window.layers.units.clearLayers(); window.layers.polys.clearLayers(); window.layers.markers.clearLayers(); window.layers.drawings.clearLayers(); window.layers.burnt.clearLayers();
-                let counts = {event:0, moving:0, stage:0, air:0};
-                if(d) Object.entries(d).forEach(([k,u]) => {
-                    if(u.type==='unit') {
-                        if(u.sub==='heli') counts.air++;
-                        else if(u.status.includes('moving')) counts.moving++;
-                        else if(u.lat === DEFAULT_POS[0]) counts.stage++;
-                        else counts.event++;
+                window.layers.units.clearLayers();
+                window.layers.polys.clearLayers();
+                window.layers.markers.clearLayers();
+                window.layers.drawings.clearLayers();
+                window.layers.burnt.clearLayers();
+                
+                let counts = { event: 0, moving: 0, stage: 0, air: 0 };
+                
+                if (d) {
+                    Object.entries(d).forEach(([k, u]) => {
+                        if (u.type === 'unit') {
+                            if (u.sub === 'heli') counts.air++;
+                            else if (u.status && u.status.includes('moving')) counts.moving++;
+                            else if (Math.abs(u.lat - DEFAULT_POS[0]) < 0.001) counts.stage++;
+                            else counts.event++;
+                        }
+                        renderObject(k, u);
+                    });
+                    
+                    if (window.myRole === 'admin') {
+                        runPhysics(fireNodesCache, d, getGameTime());
                     }
-                    renderObject(k,u);
-                });
+                }
+                
                 document.getElementById('cnt-event').innerText = counts.event;
                 document.getElementById('cnt-move').innerText = counts.moving;
                 document.getElementById('cnt-stage').innerText = counts.stage;
                 document.getElementById('cnt-air').innerText = counts.air;
-                if(window.myRole==='admin') runPhysics(window.fireNodesCache, d, getGameTime());
             });
-
+            
             db.ref(`games/${GAME_ID}/fire_nodes`).on('value', s => {
-                window.fireNodesCache = s.val();
-                window.layers.fire.clearLayers(); window.layers.pred.clearLayers();
+                fireNodesCache = s.val();
+                window.layers.fire.clearLayers();
+                window.layers.pred.clearLayers();
                 drawFire(s.val(), getGameTime());
             });
-
-            if(window.myRole==='admin'||window.myRole==='ic') db.ref(`games/${GAME_ID}/requests`).on('value', s => renderRequests(s.val()));
-            if(window.myRole==='ic'||window.myRole==='admin') db.ref(`games/${GAME_ID}/ic_bank`).on('value', s => { icBank=s.val()||{}; renderIcBank(); });
-            if(window.myRole==='sector') db.ref(`games/${GAME_ID}/sector_staging`).on('value', s => { 
-                sectorUnits={}; 
-                if(s.val()) Object.entries(s.val()).forEach(([k,v])=>{ if(v.sector===window.mySector && v.status==='available') { if(!sectorUnits[v.type]) sectorUnits[v.type]=[]; sectorUnits[v.type].push(k); } });
-                initSectorButtons();
-            });
-            db.ref(`games/${GAME_ID}/logs`).on('value', s => renderLogs(s.val()));
-        }
-
-        // Render Functions
-        function renderObject(k,u) {
-            if(u.type==='unit') {
-                if(window.myRole==='sector' && u.sector!==window.mySector) return;
-                let html = u.sub==='heli' ? `<div class="unit-heli"><i class="fa-solid fa-helicopter"></i></div>` : 
-                    `<div class="icon-unit ${u.sub=='saar'?'unit-saar':'unit-eshed'} ${u.water<=0?'unit-empty':''}">${u.callSign}<div class="water-bar"><div class="water-fill" style="width:${u.water}%"></div></div></div>`;
-                let m = L.marker([u.lat,u.lng], {icon:L.divIcon({html:html,className:''})}).addTo(window.layers.units);
-                m.on('click', ()=>{ if(window.activeTool==='move_select') { window.selectedToken=k; window.activeTool='move_dest'; document.getElementById('map').style.cursor='crosshair'; } });
+            
+            if (window.myRole === 'admin' || window.myRole === 'ic') {
+                db.ref(`games/${GAME_ID}/requests`).on('value', s => renderRequests(s.val()));
             }
-            if(u.type==='burnt_spot') L.circle([u.lat,u.lng], {radius:u.radius, color:'black', fillColor:'black', fillOpacity:0.5, stroke:false}).addTo(window.layers.burnt);
-            if(u.type==='marker') {
-                let h='';
-                if(u.sub==='cp') h='<i class="fa-solid fa-flag text-danger fs-2"></i>';
-                if(u.sub==='staging') h='<i class="fa-solid fa-circle-h text-danger fs-2"></i>';
-                if(u.sub==='water') h='<i class="fa-solid fa-droplet text-primary fs-3"></i>';
-                if(u.sub==='pool') h='<span class="fa-stack"><i class="fa-solid fa-circle text-info fa-stack-2x"></i><i class="fa-solid fa-h text-white fa-stack-1x"></i></span>';
-                if(u.sub==='sym_risk') h='<div style="color:#27ae60; font-size:24px;">▼</div>';
-                if(u.sub==='sym_defense') { L.circle([u.lat,u.lng], {radius:u.radius, color:'black', fill:false, dashArray:'5,5'}).addTo(window.layers.markers); return; }
-                L.marker([u.lat,u.lng], {icon:L.divIcon({html:h,className:''})}).addTo(window.layers.markers);
+            
+            if (window.myRole === 'ic' || window.myRole === 'admin') {
+                db.ref(`games/${GAME_ID}/ic_bank`).on('value', s => {
+                    icBank = s.val() || {};
+                    renderIcBank();
+                });
             }
-            if(u.type==='sector') L.polygon(u.points, {color:'orange', fillOpacity:0, dashArray:'5,5', interactive:false}).addTo(window.layers.polys).bindTooltip(u.name,{permanent:true,direction:"center"});
-            if(u.type==='drawing') {
-                if(u.sub.includes('plane')) {
-                    if(getGameTime()-u.created > 1800000) { if(window.myRole==='admin') db.ref(`games/${GAME_ID}/units/${k}`).remove(); return; }
-                    let c = u.sub.includes('red')?'red':'blue';
-                    // Draw dots chain
-                    let dots = L.polyline([u.p1,u.p2], {color:c, weight:8, dashArray:'1,15', lineCap:'round'}).addTo(window.layers.drawings);
-                } else if(u.sub==='dozer') {
-                    let done = getGameTime() > (u.start+u.duration);
-                    // D9: Draw black where passed, gray ahead
-                    L.polyline([u.p1,u.p2], {color:done?'black':'gray', weight:6}).addTo(window.layers.drawings);
-                } else {
-                    L.polyline([u.p1,u.p2], {color:'red', weight:4}).addTo(window.layers.drawings);
-                    L.marker(u.p2, {icon:L.divIcon({html:'<i class="fa-solid fa-caret-up text-danger fs-3"></i>',className:''})}).addTo(window.layers.drawings);
-                }
-            }
-        }
-
-        function drawFire(nodes, gt) {
-            if(!nodes) return;
-            Object.values(nodes).forEach(n => {
-                if(!n.active) return;
-                let el = (gt - n.start)/1000;
-                let dist = 50 + ((n.windSpeed*30) * (el/3600));
-                let windRad = (n.windDir-90)*(Math.PI/180);
-                let off = dist / 111111;
-                let center = [n.lat + off*Math.sin(windRad), n.lng + off*Math.cos(windRad)];
-                let col = ['gray','gray','yellow','orange','orangered','red','purple'][n.level] || 'red';
-                // Fire Finger (Directional Circle)
-                L.circle(center, {radius: dist*0.4, color:col, fillOpacity:0.4, weight:2}).addTo(window.layers.fire);
-                if(showPrediction) {
-                    let pDist = dist + (n.windSpeed*30 * 2);
-                    let pCenter = [n.lat + (pDist/111111)*Math.sin(windRad), n.lng + (pDist/111111)*Math.cos(windRad)];
-                    L.polyline([center, pCenter], {color:'yellow', dashArray:'5,5'}).addTo(window.layers.pred);
-                }
-            });
-        }
-
-        function handleWindChange(v) {
-            db.ref(`games/${GAME_ID}/fire_nodes`).get().then(s => {
-                let nodes = s.val(); if(!nodes) return;
-                let updates = {};
-                let gt = getGameTime();
-                Object.entries(nodes).forEach(([k,n]) => {
-                    if(n.active) {
-                        updates[`${k}/active`] = false; 
-                        let el = (gt - n.start)/1000;
-                        let dist = 50 + ((n.windSpeed*30) * (el/3600));
-                        let rad = (n.windDir-90)*(Math.PI/180);
-                        let newLat = n.lat + (dist/111111)*Math.sin(rad);
-                        let newLng = n.lng + (dist/111111)*Math.cos(rad);
-                        db.ref(`games/${GAME_ID}/fire_nodes`).push({
-                            lat: newLat, lng: newLng, start: gt, active: true, level: n.level, windDir: v.windDir, windSpeed: v.wind
+            
+            if (window.myRole === 'sector') {
+                db.ref(`games/${GAME_ID}/sector_staging`).on('value', s => {
+                    sectorUnits = {};
+                    if (s.val()) {
+                        Object.entries(s.val()).forEach(([k, v]) => {
+                            if (v.sector === window.mySector && v.status === 'available') {
+                                if (!sectorUnits[v.type]) sectorUnits[v.type] = [];
+                                sectorUnits[v.type].push(k);
+                            }
                         });
                     }
+                    initSectorButtons();
                 });
-                db.ref(`games/${GAME_ID}/fire_nodes`).update(updates);
-            });
-        }
-
-        // --- COMMON ---
-        window.reqRes = (t) => { 
-            let status = (window.myRole === 'ic') ? 'pending_admin' : 'pending_ic';
-            db.ref(`games/${GAME_ID}/requests`).push({
-                type:t, by:window.myName, role:getRoleNameDisplay(), sector:window.mySector, time:Date.now(), status: status
-            }); 
-            showToast("בקשה נשלחה"); 
-        };
-        window.reqD9 = () => window.reqRes('D9');
-        
-        function renderRequests(d) {
-            let div = document.getElementById('req-container'); div.innerHTML="";
-            if(d) Object.entries(d).forEach(([k,v]) => {
-                let show=false, btn='';
-                // IC sees pending_ic, Admin sees pending_admin
-                if(window.myRole==='ic' && v.status==='pending_ic') { show=true; btn=`<button class="btn btn-sm btn-success p-0 px-2" onclick="approve('${k}',1)">V</button>`; }
-                if(window.myRole==='admin' && v.status==='pending_admin') { show=true; btn=`<button class="btn btn-sm btn-danger" onclick="approve('${k}',2,'${v.type}')">V</button>`; }
-                if(show) div.innerHTML += `<div style="background:white; border-bottom:1px solid #ccc; padding:5px; display:flex; justify-content:space-between; align-items:center;">
-                    <small>${v.type} (${v.sector||v.by})</small> ${btn}</div>`;
-            });
-        }
-        window.approve = (k,step,type) => {
-            if(step===1) db.ref(`games/${GAME_ID}/requests/${k}`).update({status:'pending_admin'});
-            else { db.ref(`games/${GAME_ID}/requests/${k}`).remove(); db.ref(`games/${GAME_ID}/ic_bank`).push({type:type}); logSys(`אושר ${type}`); }
-        };
-        function renderIcBank() {
-            let div = document.getElementById('ic-bank-tools'); div.innerHTML="";
-            let counts = {saar:0, eshed:0, heli:0, D9:0, plane_red:0, plane_blue:0};
-            let ids = {saar:[], eshed:[], heli:[], D9:[], plane_red:[], plane_blue:[]};
-            Object.entries(icBank).forEach(([k,v]) => { if(counts[v.type]!==undefined) { counts[v.type]++; ids[v.type].push(k); } });
+            }
             
-            // Render buttons for allocation
-            const types = ['saar','eshed','heli','D9']; // Planes allocated differently or same? Let's assume planes are allocated to sector too
-            // Adding planes to loop
-            ['saar','eshed','heli','D9', 'plane_red', 'plane_blue'].forEach(t => {
-                // If IC has planes, show them
-                if(counts[t] > 0 || ['saar','eshed','heli','D9'].includes(t)) {
-                     div.innerHTML += `<button class="btn-tool" onclick="alloc('${t}','${ids[t][0]}')" ${counts[t]===0?'disabled':''}>
-                        ${t} <span class="badge-count">${counts[t]}</span> <i class="fa-solid fa-share"></i>
-                    </button>`;
+            db.ref(`games/${GAME_ID}/logs`).on('value', s => renderLogs(s.val()));
+        }
+        
+        // ============================================================
+        // UI FUNCTIONS
+        // ============================================================
+        window.alloc = (type, id) => {
+            window.pendingAllocId = id;
+            document.getElementById('alloc-modal').style.display = 'flex';
+        };
+        
+        window.closeAlloc = () => {
+            document.getElementById('alloc-modal').style.display = 'none';
+        };
+        
+        window.confirmAlloc = (sector) => {
+            db.ref(`games/${GAME_ID}/ic_bank/${window.pendingAllocId}`).get().then(s => {
+                let type = s.val().type;
+                db.ref(`games/${GAME_ID}/ic_bank/${window.pendingAllocId}`).remove();
+                db.ref(`games/${GAME_ID}/sector_staging`).push({
+                    type: type,
+                    sector: sector,
+                    status: 'available'
+                });
+                logSys(`✅ הוקצה ${type} לגזרה ${sector}`);
+                closeAlloc();
+            });
+        };
+        
+        window.deleteSector = () => {
+            let name = prompt("שם גזרה למחיקה:");
+            if (!name) return;
+            
+            db.ref(`games/${GAME_ID}/units`).get().then(s => {
+                let d = s.val();
+                if (d) {
+                    Object.entries(d).forEach(([k, v]) => {
+                        if (v.type === 'sector' && v.name === name) {
+                            db.ref(`games/${GAME_ID}/units/${k}`).remove();
+                        }
+                        if (v.type === 'unit' && v.sector === name) {
+                            db.ref(`games/${GAME_ID}/units/${k}`).remove();
+                            db.ref(`games/${GAME_ID}/ic_bank`).push({ type: v.sub });
+                        }
+                    });
+                    logSys(`🗑️ גזרה "${name}" נמחקה וכוחותיה הוחזרו`);
                 }
             });
-        }
-        function initSectorButtons() {
-            let div = document.getElementById('sector-tools'); div.innerHTML="";
-            ['saar','eshed','heli','D9','plane_red','plane_blue'].forEach(t => {
-                let count = sectorUnits[t]? sectorUnits[t].length : 0;
-                let cls = count>0 ? 'available' : '';
-                let icon = count>0 ? '⬇️' : '❓';
-                // Show planes only if available or requested? Show all for uniformity
-                div.innerHTML += `<button class="btn-tool ${cls}" onclick="handleSectorBtn('${t}')">
-                    ${icon} ${t} <span class="badge-count" style="display:${count>0?'flex':'none'}">${count}</span>
-                </button>`;
-            });
-            div.innerHTML += `<button class="btn-tool" onclick="moveUnit()"><i class="fa-solid fa-up-down-left-right text-primary"></i> הזז</button>`;
-        }
-        window.handleSectorBtn = (t) => {
-            if(sectorUnits[t] && sectorUnits[t].length>0) {
-                // Lock mode
-                window.selectedToken = sectorUnits[t][0]; 
-                window.activeTool = 'place_unit'; 
-                document.getElementById('map').style.cursor='crosshair'; 
-                document.getElementById('active-mode-banner').style.display='block';
-                showToast("מצב הצבה: לחץ במפה");
-            } else window.reqRes(t);
         };
-        window.placeUnit = (token, loc) => {
-            db.ref(`games/${GAME_ID}/sector_staging/${token}`).remove();
-            let type = Object.keys(sectorUnits).find(k => sectorUnits[k].includes(token));
-            
-            if(type==='D9') { 
-                window.activeTool='dozer'; showToast("סמן קו עבודה ל-D9");
-            } 
-            else if(type.includes('plane')) {
-                window.activeTool = type; showToast("שרטט קו הטלה (עד 85מ)");
-            }
-            else {
-                db.ref(`games/${GAME_ID}/units`).push({ type:'unit', sub:type, lat:loc.lat, lng:loc.lng, sector:window.mySector, water:100, status:'idle', callSign:Math.floor(Math.random()*100)+400 });
-                logSys(`הוצב ${type}`); 
-                deactivateTool();
-            }
-        };
-
-        // --- UTILS ---
-        window.editMeteo = () => { let w=prompt("רוח"), d=prompt("כיוון"), t=prompt("טמפ"); if(w) db.ref(`games/${GAME_ID}/state`).update({wind:w, windDir:d, temp:t, lastWindChange:Date.now()}); };
-        window.togglePred = () => { showPrediction=!showPrediction; syncData(); };
-        window.setTool = (t,e) => { 
-            if(e) e.stopPropagation(); 
-            window.activeTool=t; 
-            if(t!=='move_select') window.selectedToken=null; 
-            polyPoints=[]; 
-            document.getElementById('map').style.cursor='crosshair'; 
-            document.getElementById('active-mode-banner').style.display='block';
-            showToast("כלי נבחר: " + t);
-        };
-        window.deactivateTool = () => {
-            window.activeTool=null; 
-            document.getElementById('map').style.cursor='grab';
-            document.getElementById('active-mode-banner').style.display='none';
-        };
-        window.resetTool = () => deactivateTool();
-        window.moveUnit = () => { window.activeTool='move_select'; document.getElementById('map').style.cursor='pointer'; showToast("בחר רכב"); };
-        window.logSys = (t) => db.ref(`games/${GAME_ID}/logs`).push({text:t, user:window.myName, role:getRoleNameDisplay(), time:Date.now()});
-        window.sendChat = () => { let i=document.getElementById('chat-in'); if(i.value) logSys(i.value); i.value=""; };
-        window.resetGame = () => { if(confirm("איפוס?")) db.ref(`games/${GAME_ID}`).remove().then(()=>location.reload()); };
-        window.showToast = (msg) => { let d=document.createElement('div'); d.className='toast-msg'; d.innerText=msg; document.getElementById('toast-container').appendChild(d); setTimeout(()=>d.remove(),3000); };
-        window.showTooltip = (e, txt, col='black') => {
-            if(!window.tooltipDiv) { window.tooltipDiv=document.createElement('div'); window.tooltipDiv.className='draw-tooltip'; document.body.appendChild(window.tooltipDiv); }
-            window.tooltipDiv.style.display='block';
-            window.tooltipDiv.style.left=(e.clientX+10)+'px';
-            window.tooltipDiv.style.top=(e.clientY+10)+'px';
-            window.tooltipDiv.innerText=txt;
-            window.tooltipDiv.style.background=col;
-        };
-        window.hideTooltip = () => { if(window.tooltipDiv) window.tooltipDiv.style.display='none'; };
         
-        window.genReport = () => {
-            document.getElementById('rep-date').innerText = new Date().toLocaleString();
-            html2canvas(document.getElementById('map'), {useCORS: true}).then(canvas => {
-                let img = document.createElement('img'); img.src = canvas.toDataURL();
-                document.getElementById('map-snapshot').innerHTML = ''; document.getElementById('map-snapshot').appendChild(img);
-                window.print();
+        window.reqRes = (type) => {
+            let status = (window.myRole === 'ic') ? 'pending_admin' : 'pending_ic';
+            db.ref(`games/${GAME_ID}/requests`).push({
+                type: type,
+                by: window.myName,
+                role: getRoleNameDisplay(),
+                sector: window.mySector,
+                time: Date.now(),
+                status: status
+            });
+            showToast(`📨 נשלחה בקשה ל-${type}`);
+        };
+        
+        function renderRequests(d) {
+            let div = document.getElementById('req-container');
+            div.innerHTML = "";
+            
+            if (d) {
+                Object.entries(d).forEach(([k, v]) => {
+                    let show = false;
+                    let btn = '';
+                    
+                    if (window.myRole === 'ic' && v.status === 'pending_ic') {
+                        show = true;
+                        btn = `<button class="btn btn-sm btn-success" onclick="approve('${k}',1,'${v.type}')">✓ אשר</button>`;
+                    }
+                    if (window.myRole === 'admin' && v.status === 'pending_admin') {
+                        show = true;
+                        btn = `<button class="btn btn-sm btn-danger" onclick="approve('${k}',2,'${v.type}')">✓ אשר</button>`;
+                    }
+                    
+                    if (show) {
+                        div.innerHTML += `
+                            <div class="req-item">
+                                <small><strong>${v.type}</strong> - ${v.by} (${v.sector || 'IC'})</small>
+                                ${btn}
+                            </div>
+                        `;
+                    }
+                });
+            }
+        }
+        
+        window.approve = (k, step, type) => {
+            if (step === 1) {
+                db.ref(`games/${GAME_ID}/requests/${k}`).update({ status: 'pending_admin' });
+                logSys(`✅ מפקד האירוע אישר בקשה ל-${type}`);
+            } else {
+                db.ref(`games/${GAME_ID}/requests/${k}`).remove();
+                db.ref(`games/${GAME_ID}/ic_bank`).push({ type: type });
+                logSys(`✅ חפ״ק אישר ${type} סופית`);
+            }
+        };
+        
+        function renderIcBank() {
+            let div = document.getElementById('ic-bank-tools');
+            div.innerHTML = "";
+            
+            let counts = { saar: 0, eshed: 0, heli: 0, D9: 0 };
+            let ids = { saar: [], eshed: [], heli: [], D9: [] };
+            
+            Object.entries(icBank).forEach(([k, v]) => {
+                if (counts[v.type] !== undefined) {
+                    counts[v.type]++;
+                    ids[v.type].push(k);
+                }
+            });
+            
+            ['saar', 'eshed', 'heli', 'D9'].forEach(t => {
+                let icon = t === 'saar' ? 'truck' : t === 'eshed' ? 'truck-monster' : t === 'heli' ? 'helicopter' : 'tractor';
+                let disabled = counts[t] === 0 ? 'disabled' : '';
+                
+                div.innerHTML += `
+                    <button class="btn-tool" onclick="alloc('${t}','${ids[t][0]}')" ${disabled}>
+                        <span><i class="fa-solid fa-${icon}"></i> ${t}</span>
+                        <span class="badge-count">${counts[t]}</span>
+                    </button>
+                `;
+            });
+        }
+        
+        function initSectorButtons() {
+            let div = document.getElementById('sector-tools');
+            div.innerHTML = "";
+            
+            ['saar', 'eshed', 'heli', 'D9'].forEach(t => {
+                let count = sectorUnits[t] ? sectorUnits[t].length : 0;
+                let cls = count > 0 ? 'available' : '';
+                let icon = count > 0 ? '⬇️' : '❓';
+                
+                div.innerHTML += `
+                    <button class="btn-tool ${cls}" onclick="handleSectorBtn('${t}')">
+                        <span>${icon} ${t}</span>
+                        <span class="badge-count" style="display:${count > 0 ? 'flex' : 'none'}">${count}</span>
+                    </button>
+                `;
+            });
+            
+            div.innerHTML += `
+                <hr style="margin: 5px 0;">
+                <button class="btn-tool" onclick="moveUnit()">
+                    <span><i class="fa-solid fa-arrows-alt text-primary"></i> הזז כלי</span>
+                </button>
+            `;
+        }
+        
+        window.handleSectorBtn = (type) => {
+            if (sectorUnits[type] && sectorUnits[type].length > 0) {
+                window.selectedToken = sectorUnits[type][0];
+                window.activeTool = 'place_unit';
+                document.getElementById('map').style.cursor = 'crosshair';
+                document.getElementById('active-mode-banner').style.display = 'block';
+                showToast(`🎯 מצב הצבה: ${type}`);
+            } else {
+                reqRes(type);
+            }
+        };
+        
+        window.placeUnit = (token, loc) => {
+            db.ref(`games/${GAME_ID}/sector_staging/${token}`).get().then(s => {
+                let type = s.val().type;
+                db.ref(`games/${GAME_ID}/sector_staging/${token}`).remove();
+                
+                if (type === 'D9') {
+                    window.activeTool = 'dozer';
+                    showToast("🚜 סמן קו עבודה ל-D9");
+                } else {
+                    let prefix = type === 'saar' ? 'סער' : type === 'eshed' ? 'אשד' : 'מסוק';
+                    let num = Math.floor(Math.random() * 100) + 400;
+                    let callSign = `${prefix}-${num}`;
+                    
+                    db.ref(`games/${GAME_ID}/units`).push({
+                        type: 'unit',
+                        sub: type,
+                        lat: loc.lat,
+                        lng: loc.lng,
+                        sector: window.mySector,
+                        water: 100,
+                        status: 'idle',
+                        callSign: callSign
+                    });
+                    
+                    logSys(`✅ הוצב ${callSign} בגזרה ${window.mySector}`);
+                    deactivateTool();
+                }
             });
         };
+        
+        window.moveUnit = () => {
+            window.activeTool = 'move_select';
+            document.getElementById('map').style.cursor = 'pointer';
+            showToast("👆 בחר כלי להזיז");
+        };
+        
+        window.editMeteo = () => {
+            let w = prompt("מהירות רוח (קמ״ש):", gameState.wind);
+            let d = prompt("כיוון רוח (מעלות):", gameState.windDir);
+            let t = prompt("טמפרטורה (°C):", gameState.temp);
+            
+            if (w && d && t) {
+                db.ref(`games/${GAME_ID}/state`).update({
+                    wind: parseFloat(w),
+                    windDir: parseFloat(d),
+                    temp: parseFloat(t),
+                    lastWindChange: Date.now()
+                });
+                logSys(`🌡️ מזג אוויר עודכן: ${w} קמ״ש, ${d}°, ${t}°C`);
+            }
+        };
+        
+        window.togglePred = () => {
+            showPrediction = !showPrediction;
+            syncData();
+            showToast(showPrediction ? "🔮 חיזוי מופעל" : "חיזוי כבוי");
+        };
+        
         function renderLogs(d) {
-            let div=document.getElementById('log-container'), tb=document.getElementById('rep-log-body');
-            div.innerHTML=""; tb.innerHTML="";
-            if(d) Object.values(d).forEach(l => {
-                let t = new Date(l.time).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
-                div.innerHTML += `<div><small>${t}</small> <b>${l.role}</b>: ${l.text}</div>`;
-                tb.innerHTML += `<tr><td>${t}</td><td>${l.role}</td><td>${l.user}</td><td>${l.text}</td></tr>`;
-            });
-            div.scrollTop=div.scrollHeight;
+            let div = document.getElementById('log-container');
+            div.innerHTML = "";
+            
+            if (d) {
+                Object.values(d).forEach(l => {
+                    let t = new Date(l.time).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                    
+                    div.innerHTML += `
+                        <div class="log-entry">
+                            <span class="log-time">${t}</span>
+                            <span class="log-role">${l.role}:</span>
+                            ${l.text}
+                        </div>
+                    `;
+                });
+                
+                div.scrollTop = div.scrollHeight;
+            }
         }
+        
+        // ============================================================
+        // UTILITY FUNCTIONS
+        // ============================================================
+        window.setTool = (tool) => {
+            window.activeTool = tool;
+            window.selectedToken = null;
+            polyPoints = [];
+            document.getElementById('map').style.cursor = 'crosshair';
+            document.getElementById('active-mode-banner').style.display = 'block';
+            showToast(`🔧 כלי נבחר: ${tool}`);
+        };
+        
+        window.deactivateTool = () => {
+            window.activeTool = null;
+            document.getElementById('map').style.cursor = 'grab';
+            document.getElementById('active-mode-banner').style.display = 'none';
+        };
+        
+        window.resetGame = () => {
+            if (confirm("⚠️ האם אתה בטוח שברצונך לאפס את המערכת?")) {
+                db.ref(`games/${GAME_ID}`).remove().then(() => {
+                    location.reload();
+                });
+            }
+        };
+        
+        window.showToast = (msg) => {
+            let d = document.createElement('div');
+            d.className = 'toast-msg';
+            d.innerText = msg;
+            document.getElementById('toast-container').appendChild(d);
+            setTimeout(() => d.remove(), 3000);
+        };
+        
+        window.showTooltip = (e, txt, col = 'black') => {
+            if (!window.tooltipDiv) {
+                window.tooltipDiv = document.createElement('div');
+                window.tooltipDiv.className = 'draw-tooltip';
+                document.body.appendChild(window.tooltipDiv);
+            }
+            window.tooltipDiv.style.display = 'block';
+            window.tooltipDiv.style.left = (e.clientX + 15) + 'px';
+            window.tooltipDiv.style.top = (e.clientY + 15) + 'px';
+            window.tooltipDiv.innerText = txt;
+            window.tooltipDiv.style.background = col;
+        };
+        
+        window.hideTooltip = () => {
+            if (window.tooltipDiv) window.tooltipDiv.style.display = 'none';
+        };
+        
+        window.logSys = (text) => {
+            db.ref(`games/${GAME_ID}/logs`).push({
+                text: text,
+                user: window.myName,
+                role: getRoleNameDisplay(),
+                time: Date.now()
+            });
+        };
+        
+        window.sendChat = () => {
+            let input = document.getElementById('chat-in');
+            if (input.value.trim()) {
+                logSys(input.value);
+                input.value = "";
+            }
+        };
+        
         function makeDraggable() {
             document.querySelectorAll('.draggable-panel').forEach(elm => {
-                let h = elm.querySelector('.panel-handle');
-                h.onmousedown = e => {
-                    e.preventDefault(); let x=e.clientX, y=e.clientY;
-                    document.onmousemove = e => { e.preventDefault(); elm.style.top=(elm.offsetTop-(y-e.clientY))+"px"; elm.style.left=(elm.offsetLeft-(x-e.clientX))+"px"; x=e.clientX; y=e.clientY; };
-                    document.onmouseup = () => { document.onmousemove=null; };
+                let handle = elm.querySelector('.panel-handle');
+                handle.onmousedown = e => {
+                    e.preventDefault();
+                    let startX = e.clientX;
+                    let startY = e.clientY;
+                    let startLeft = elm.offsetLeft;
+                    let startTop = elm.offsetTop;
+                    
+                    document.onmousemove = e => {
+                        e.preventDefault();
+                        elm.style.left = (startLeft + e.clientX - startX) + "px";
+                        elm.style.top = (startTop + e.clientY - startY) + "px";
+                    };
+                    
+                    document.onmouseup = () => {
+                        document.onmousemove = null;
+                        document.onmouseup = null;
+                    };
                 };
             });
         }
-        document.body.onkeydown = (e) => { if(e.code==='Space' && document.activeElement.tagName!=='INPUT') { e.preventDefault(); document.getElementById('chat-in').focus(); } };
-        function getGameTime() { return Date.now() + ((Date.now()-gameState.start)*(TIME_FACTOR-1)); }
-        function gameLoop() {
-            let m = Math.floor((getGameTime()-gameState.start)/60000);
-            document.getElementById('clock-display').innerText = `T+${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`;
+        
+        function getGameTime() {
+            return Date.now() + ((Date.now() - gameState.start) * (TIME_FACTOR - 1));
         }
+        
+        function gameLoop() {
+            let elapsed = getGameTime() - gameState.start;
+            let minutes = Math.floor(elapsed / 60000);
+            let hours = Math.floor(minutes / 60);
+            let mins = minutes % 60;
+            
+            document.getElementById('clock-display').innerText = `T+${hours}:${String(mins).padStart(2, '0')}`;
+        }
+        
+        document.body.onkeydown = (e) => {
+            if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
+                e.preventDefault();
+                document.getElementById('chat-in').focus();
+            }
+            
+            if (e.code === 'Escape') {
+                deactivateTool();
+            }
+        };
     </script>
 </body>
 </html>
