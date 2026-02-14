@@ -619,6 +619,59 @@
             color: white;
             border-color: #2980b9;
         }
+        /* ============================================
+   SEARCH BOX
+============================================ */
+.search-box {
+    position: absolute;
+    top: 20px;
+    right: 430px;
+    z-index: 1500;
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    display: flex;
+    overflow: hidden;
+}
+
+.search-box input {
+    border: none;
+    padding: 10px 15px;
+    width: 250px;
+    font-size: 14px;
+    outline: none;
+    direction: rtl;
+    text-align: right;
+}
+
+.search-box button {
+    border: none;
+    background: #3498db;
+    color: white;
+    padding: 10px 15px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.search-box button:hover {
+    background: #2980b9;
+}
+
+.search-marker {
+    background: #e74c3c;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 0 10px rgba(231,76,60,0.8);
+    animation: pulse-search 1.5s infinite;
+}
+
+@keyframes pulse-search {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+}
+    </style>
     </style>
 </head><body>
 
@@ -2025,6 +2078,7 @@ if (window.myRole === 'admin') {
     </script>
 </body>
 </html>
+
 
 
 
