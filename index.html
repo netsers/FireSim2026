@@ -953,7 +953,16 @@
             setTimeout(() => {
                 initMap();
                 syncData();
-                setInterval(gameLoop, 1000);
+setInterval(gameLoop, 1000);
+
+// Physics loop - separate from rendering
+if (window.myRole === 'admin') {
+    setInterval(() => {
+        db.ref(`games/${GAME_ID}/units`).once('value').then(unitsSnap => {
+            runPhysics(fireNodesCache, unitsSnap.val(), getGameTime());
+        });
+    }, 3000);
+}
             }, 500);
         };
         
@@ -1600,10 +1609,6 @@
                         }
                         renderObject(k, u);
                     });
-                    
-                    if (window.myRole === 'admin') {
-                        runPhysics(fireNodesCache, d, getGameTime());
-                    }
                 }
                 
                 document.getElementById('cnt-event').innerText = counts.event;
