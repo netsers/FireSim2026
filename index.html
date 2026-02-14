@@ -788,6 +788,13 @@
     <div id="main-container">
         <!-- Map -->
         <div id="map">
+            <!-- Search Box -->
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="חפש מיקום (שם או קואורדינטות)...">
+                <button onclick="searchLocation()">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            </div>
             <!-- Legend -->
             <div id="legend">
                 <div class="fw-bold border-bottom mb-2 pb-1">מקרא</div>
@@ -2075,9 +2082,82 @@ if (window.myRole === 'admin') {
                 deactivateTool();
             }
         };
+        // ============================================================
+        // SEARCH LOCATION
+        // ============================================================
+        let searchMarker = null;
+        
+        window.searchLocation = async () => {
+            let query = document.getElementById('search-input').value.trim();
+            if (!query) {
+                showToast("⚠️ הקלד שם מקום או קואורדינטות");
+                return;
+            }
+            
+            let coordMatch = query.match(/^([-+]?\d+\.?\d*)[,\s]+([-+]?\d+\.?\d*)$/);
+            if (coordMatch) {
+                let lat = parseFloat(coordMatch[1]);
+                let lng = parseFloat(coordMatch[2]);
+                goToLocation(lat, lng, `${lat}, ${lng}`);
+                return;
+            }
+            
+            try {
+                showToast("🔍 מחפש...");
+                let response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+                let data = await response.json();
+                
+                if (data && data.length > 0) {
+                    let lat = parseFloat(data[0].lat);
+                    let lng = parseFloat(data[0].lon);
+                    let name = data[0].display_name;
+                    goToLocation(lat, lng, name);
+                } else {
+                    showToast("❌ לא נמצא מיקום");
+                }
+            } catch (error) {
+                showToast("❌ שגיאה בחיפוש");
+                console.error(error);
+            }
+        };
+        
+        function goToLocation(lat, lng, name) {
+            if (searchMarker) window.map.removeLayer(searchMarker);
+            
+            window.map.flyTo([lat, lng], 16, { duration: 1.5 });
+            
+            searchMarker = L.marker([lat, lng], {
+                icon: L.divIcon({ className: 'search-marker', iconSize: [30, 30] }),
+                zIndexOffset: 2000
+            }).addTo(window.map);
+            
+            searchMarker.bindPopup(`<div style="text-align:center"><strong>${name}</strong><br>📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>`).openPopup();
+            
+            showToast(`📍 ${name.split(',')[0]}`);
+            
+            setTimeout(() => {
+                if (searchMarker) {
+                    window.map.removeLayer(searchMarker);
+                    searchMarker = null;
+                }
+            }, 10000);
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                let searchInput = document.getElementById('search-input');
+                if (searchInput) {
+                    searchInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') searchLocation();
+                    });
+                }
+            }, 1000);
+        });
+    </script>
     </script>
 </body>
 </html>
+
 
 
 
